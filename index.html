@@ -2,124 +2,183 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Jeu du Serpent</title>
+  <title>Jeu du Serpent Avancé</title>
   <style>
     body {
       display: flex;
       justify-content: center;
       align-items: center;
+      flex-direction: column;
       height: 100vh;
       margin: 0;
       background: #0f1724;
       color: #fff;
       font-family: Arial, sans-serif;
-      flex-direction: column;
     }
-    h1 {
-      margin-bottom: 10px;
-    }
+    h1 { margin: 10px 0; }
     canvas {
       background: #1a2335;
       border: 2px solid #2f6fbf;
       border-radius: 8px;
     }
-    .score {
+    .info {
       margin-top: 12px;
       font-size: 18px;
+    }
+    .btn {
+      margin-top: 10px;
+      padding: 8px 14px;
+      font-size: 16px;
+      background: #2f6fbf;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
+    .btn:hover { background: #468de4; }
+    .scores {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #9aa7bf;
     }
   </style>
 </head>
 <body>
-  <h1>🐍 Jeu du Serpent</h1>
+  <h1>🐍 Snake Game Avancé</h1>
   <canvas id="game" width="400" height="400"></canvas>
-  <div class="score">Score : <span id="score">0</span></div>
+  <div class="info">Score : <span id="score">0</span> | Niveau : <span id="level">1</span></div>
+  <button class="btn" id="restart">Rejouer</button>
+  <div class="scores">
+    <h3>🏆 Meilleurs Scores</h3>
+    <ol id="highscores"></ol>
+  </div>
 
-  <script>
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const scoreEl = document.getElementById("score");
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const scoreEl = document.getElementById("score");
+const levelEl = document.getElementById("level");
+const restartBtn = document.getElementById("restart");
+const highScoresEl = document.getElementById("highscores");
 
-    const box = 20; // taille d'une case
-    let snake = [{ x: 9 * box, y: 10 * box }];
-    let direction = null;
-    let food = {
+const box = 20; 
+let snake, direction, food, score, level, speed, game;
+
+// Charger meilleurs scores du localStorage
+let highScores = JSON.parse(localStorage.getItem("snakeScores")) || [];
+
+function initGame() {
+  snake = [{ x: 9 * box, y: 10 * box }];
+  direction = null;
+  food = {
+    x: Math.floor(Math.random() * 20) * box,
+    y: Math.floor(Math.random() * 20) * box
+  };
+  score = 0;
+  level = 1;
+  speed = 120;
+  scoreEl.textContent = score;
+  levelEl.textContent = level;
+  restartBtn.style.display = "none";
+  if (game) clearInterval(game);
+  game = setInterval(draw, speed);
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
+  else if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
+  else if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
+  else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
+});
+
+function draw() {
+  ctx.fillStyle = "#0f1724";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Nourriture
+  ctx.fillStyle = "red";
+  ctx.fillRect(food.x, food.y, box, box);
+
+  // Serpent
+  for (let i = 0; i < snake.length; i++) {
+    ctx.fillStyle = i === 0 ? "#2f6fbf" : "#5aa0ff";
+    ctx.fillRect(snake[i].x, snake[i].y, box, box);
+  }
+
+  let snakeX = snake[0].x;
+  let snakeY = snake[0].y;
+
+  if (direction === "LEFT") snakeX -= box;
+  if (direction === "UP") snakeY -= box;
+  if (direction === "RIGHT") snakeX += box;
+  if (direction === "DOWN") snakeY += box;
+
+  if (snakeX === food.x && snakeY === food.y) {
+    score++;
+    scoreEl.textContent = score;
+
+    // Augmenter niveau tous les 5 points
+    if (score % 5 === 0) {
+      level++;
+      levelEl.textContent = level;
+      speed = Math.max(60, speed - 10); // vitesse max
+      clearInterval(game);
+      game = setInterval(draw, speed);
+    }
+
+    food = {
       x: Math.floor(Math.random() * 20) * box,
       y: Math.floor(Math.random() * 20) * box
     };
-    let score = 0;
+  } else {
+    snake.pop();
+  }
 
-    document.addEventListener("keydown", setDirection);
+  const newHead = { x: snakeX, y: snakeY };
 
-    function setDirection(e) {
-      if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
-      else if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
-      else if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
-      else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
-    }
+  if (
+    snakeX < 0 ||
+    snakeY < 0 ||
+    snakeX >= canvas.width ||
+    snakeY >= canvas.height ||
+    collision(newHead, snake)
+  ) {
+    clearInterval(game);
+    saveScore(score);
+    restartBtn.style.display = "inline-block";
+    alert("💀 Game Over! Score final : " + score);
+  }
 
-    function draw() {
-      ctx.fillStyle = "#0f1724";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+  snake.unshift(newHead);
+}
 
-      // Dessiner la nourriture
-      ctx.fillStyle = "red";
-      ctx.fillRect(food.x, food.y, box, box);
+function collision(head, array) {
+  return array.some(part => head.x === part.x && head.y === part.y);
+}
 
-      // Dessiner le serpent
-      for (let i = 0; i < snake.length; i++) {
-        ctx.fillStyle = i === 0 ? "#2f6fbf" : "#5aa0ff";
-        ctx.fillRect(snake[i].x, snake[i].y, box, box);
-      }
+function saveScore(score) {
+  highScores.push(score);
+  highScores.sort((a, b) => b - a);
+  highScores = highScores.slice(0, 5); // top 5
+  localStorage.setItem("snakeScores", JSON.stringify(highScores));
+  renderScores();
+}
 
-      // Position de la tête
-      let snakeX = snake[0].x;
-      let snakeY = snake[0].y;
+function renderScores() {
+  highScoresEl.innerHTML = "";
+  highScores.forEach(s => {
+    const li = document.createElement("li");
+    li.textContent = s;
+    highScoresEl.appendChild(li);
+  });
+}
 
-      if (direction === "LEFT") snakeX -= box;
-      if (direction === "UP") snakeY -= box;
-      if (direction === "RIGHT") snakeX += box;
-      if (direction === "DOWN") snakeY += box;
+restartBtn.addEventListener("click", initGame);
 
-      // Si le serpent mange la nourriture
-      if (snakeX === food.x && snakeY === food.y) {
-        score++;
-        scoreEl.textContent = score;
-        food = {
-          x: Math.floor(Math.random() * 20) * box,
-          y: Math.floor(Math.random() * 20) * box
-        };
-      } else {
-        snake.pop();
-      }
-
-      // Nouvelle tête
-      const newHead = { x: snakeX, y: snakeY };
-
-      // Game Over (collision mur ou corps)
-      if (
-        snakeX < 0 ||
-        snakeY < 0 ||
-        snakeX >= canvas.width ||
-        snakeY >= canvas.height ||
-        collision(newHead, snake)
-      ) {
-        clearInterval(game);
-        alert("Game Over! Score final : " + score);
-      }
-
-      snake.unshift(newHead);
-    }
-
-    function collision(head, array) {
-      for (let i = 0; i < array.length; i++) {
-        if (head.x === array[i].x && head.y === array[i].y) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    const game = setInterval(draw, 120);
-  </script>
+// Initialisation
+renderScores();
+initGame();
+</script>
 </body>
 </html>
