@@ -363,3 +363,51 @@
   </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Mini Quiz Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f4f4f4; padding:20px; }
+    .question { font-size:18px; margin-bottom:12px; }
+    .btn { display:block; margin:6px 0; padding:10px; background:#ddd; border:none; cursor:pointer; border-radius:5px; }
+    .btn.correct { background:#4caf50; color:white; }
+    .btn.wrong { background:#f44336; color:white; }
+  </style>
+</head>
+<body>
+  <h1>Quiz Test</h1>
+  <div class="question" id="question">Quel port utilise HTTPS ?</div>
+  <div id="answers"></div>
+  <div id="score">Score : 0</div>
+
+  <script>
+    const question = {
+      q: "Quel port utilise HTTPS ?",
+      choices: ["80", "21", "22", "443"],
+      correct: 3
+    };
+
+    let score = 0;
+    const answersEl = document.getElementById("answers");
+    const scoreEl = document.getElementById("score");
+
+    question.choices.forEach((choice, i) => {
+      const btn = document.createElement("button");
+      btn.textContent = choice;
+      btn.className = "btn";
+      btn.onclick = () => {
+        if (i === question.correct) {
+          btn.classList.add("correct");
+          score += 1;
+        } else {
+          btn.classList.add("wrong");
+        }
+        scoreEl.textContent = "Score : " + score;
+      };
+      answersEl.appendChild(btn);
+    });
+  </script>
+</body>
+</html>
