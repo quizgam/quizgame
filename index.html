@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini-Jeu — Quiz Cybersécurité & Dev</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#2f6fbf;--muted:#9aa7bf;--success:#1fa055;--danger:#e04f5f}
+    *{box-sizing:border-box}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;margin:0;min-height:100vh;background:linear-gradient(180deg,#071029 0%, #07192b 100%);color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:24px}
+    .wrap{width:100%;max-width:920px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{font-size:20px;margin:0}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04);padding:18px;border-radius:12px;box-shadow:0 8px 30px rgba(3,7,18,0.6)}
+    .meta{color:var(--muted);font-size:13px}
+    .main{display:grid;grid-template-columns:1fr 320px;gap:16px;margin-top:12px}
+    .quiz-area{padding:12px}
+    .question{font-size:18px;margin-bottom:12px}
+    .answers{display:flex;flex-direction:column;gap:10px}
+    .btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:12px;border-radius:10px;color:inherit;text-align:left;cursor:pointer}
+    .btn:hover{transform:translateY(-3px)}
+    .btn.correct{border-color:rgba(31,160,85,0.9);background:rgba(31,160,85,0.06)}
+    .btn.wrong{border-color:rgba(224,79,95,0.9);background:rgba(224,79,95,0.05)}
+    .controls{display:flex;gap:8px;margin-top:14px}
+    .small{font-size:13px;color:var(--muted)}
+    .sidebar{padding:12px}
+    .progress{height:12px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#5aa0ff);width:0%}
+    .score{font-size:28px;margin:12px 0}
+    .explain{margin-top:10px;color:var(--muted);font-size:14px}
+    footer{margin-top:14px;display:flex;gap:8px;align-items:center}
+    .muted{color:var(--muted)}
+    .top-actions{display:flex;gap:8px}
+    button.action{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);}
+    @media(max-width:880px){.main{grid-template-columns:1fr;}.sidebar{order:2}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Quiz : Bases de la cybersécurité & Dev (MySQL / PHP / Réseaux)</h1>
+        <div class="meta">Testez vos connaissances — réponses immédiates, points & sauvegarde locale</div>
+      </div>
+      <div class="top-actions">
+        <button id="view-questions" class="ghost btn">Voir questions</button>
+        <button id="reset-highscore" class="ghost btn">Réinitialiser meilleur score</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="card quiz-area" aria-label="zone de quiz">
+        <div class="question" id="question">Chargement...</div>
+        <div class="answers" id="answers" role="list"></div>
+
+        <div class="controls">
+          <div class="small">Temps par question : <span id="timer-display">--</span>s</div>
+          <button id="next-btn" class="action" style="margin-left:auto">Question suivante</button>
+          <button id="restart-btn" class="ghost btn">Redémarrer</button>
+        </div>
+
+        <div class="explain" id="explain"></div>
+
+        <footer>
+          <div class="small muted">Progrès</div>
+          <div style="flex:1;margin-left:8px" class="progress"><i id="progress-bar"></i></div>
+        </footer>
+      </section>
+
+      <aside class="card sidebar" aria-label="statistiques">
+        <div class="small">Score</div>
+        <div class="score" id="score">0</div>
+        <div class="small">Meilleur score (local)</div>
+        <div class="small" id="highscore">—</div>
+
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+
+        <div class="small">Questions totales: <span id="total-q">0</span></div>
+        <div class="small">Questions répondues: <span id="answered-q">0</span></div>
+        <div style="margin-top:10px">
+          <button id="show-review" class="ghost btn">Revoir réponses</button>
+        </div>
+
+        <div style="margin-top:12px" class="small muted">Astuce: personnalisez le tableau `questions` dans le script pour ajouter/éditer des questions ou explications.</div>
+      </aside>
+    </div>
+  </div>
+
+  <template id="question-template">
+    <button class="btn" role="listitem"></button>
+  </template>
+
+  <dialog id="q-list" style="padding:18px;border-radius:10px;background:var(--card);color:inherit;border:none;max-width:700px;width:95%">
+    <h3>Liste des questions</h3>
+    <div id="q-list-body" style="max-height:50vh;overflow:auto;margin-top:8px"></div>
+    <div style="margin-top:12px;text-align:right">
+      <button id="close-list" class="ghost btn">Fermer</button>
+    </div>
+  </dialog>
+
+  <script>
+  // === CONFIG ===
+  const config = {
+    timePerQuestion: 22, // secondes (0 pour désactiver)
+    pointsCorrect: 10,
+    pointsWrong: -2,
+    saveKey: 'miniquiz-cyber-v1'
+  }
+
+  // === QUESTIONS: modifiez/ajoutez en français. Chaque objet a: q, choices, correct (index), explanation, tag
+  const questions = [
+    {q: 'Quel protocole est principalement utilisé pour naviguer sur les sites web en toute sécurité (chiffrement)?',
+     choices:['HTTP','FTP','HTTPS','SMTP'], correct:2,
+     explanation: 'HTTPS est HTTP sur TLS/SSL — il chiffre les données entre le navigateur et le serveur.', tag:'Réseau'},
+
+    {q: 'Quelle commande SQL supprime toutes les lignes d\'une table sans supprimer la table elle-même?',
+     choices:['DELETE FROM table;','DROP table;','TRUNCATE TABLE table;','REMOVE FROM table;'], correct:2,
+     explanation: 'TRUNCATE TABLE enlève toutes les lignes et réinitialise souvent les compteurs, plus rapide que DELETE sans WHERE.', tag:'MySQL'},
+
+    {q: 'Quel fichier PHP retourne une variable GET appelée "id" envoyée par URL ?',
+     choices:['$_POST["id"]','$_GET["id"]','$_SESSION["id"]','$_COOKIE["id"]'], correct:1,
+     explanation: 'Les paramètres d\'une URL (ex: ?id=5) sont accessibles via $_GET en PHP.', tag:'PHP'},
+
+    {q: 'phpMyAdmin est principalement utilisé pour :',
+     choices:['Éditer des fichiers PHP','Gérer des bases de données MySQL via une interface web','Compiler PHP','Surveiller le réseau'], correct:1,
+     explanation: 'phpMyAdmin est une interface web populaire pour administrer MySQL/MariaDB.', tag:'phpMyAdmin'},
+
+    {q: 'Quel principe est essentiel pour limiter les dégâts si un compte est compromis?',
+     choices:['Principe du moindre privilège','Open by default','Full access for devs','Utiliser le même mot de passe pour tout'], correct:0,
+     explanation: 'Le principe du moindre privilège accorde seulement les permissions nécessaires, réduisant l\'impact d\'une compromission.', tag:'Cybersécurité'},
+
+    {q: 'Quel port TCP est typiquement utilisé par SSH?',
+     choices:['21','22','80','443'], correct:1,
+     explanation: 'SSH utilise le port 22 par défaut.', tag:'Réseau'},
+
+    {q: 'Pour protéger contre les injections SQL, quelle pratique est recommandée en PHP?',
+     choices:['Construire les requêtes en concaténant des chaînes','Utiliser des requêtes préparées / paramètres liés','Échapper manuellement les apostrophes','Mettre la DB en lecture seule'], correct:1,
+     explanation: 'Les requêtes préparées (prepared statements) évitent les injections SQL en séparant code et données.', tag:'MySQL/PHP'},
+
+    {q: 'Que signifie XSS ?',
+     choices:['Cross-Site Scripting','XML Secure Service','eXtra Secure Session','Cross-System Sync'], correct:0,
+     explanation: 'Cross-Site Scripting est une attaque qui injecte du code client (JS) malveillant dans des pages vues par d\'autres utilisateurs.', tag:'Cybersécurité'},
+
+    {q: 'Quelle directive dans php.ini définit la taille maximale d\'upload de fichier?',
+     choices:['upload_max_filesize','max_upload_size','post_max_size','file_uploads'], correct:0,
+     explanation: 'upload_max_filesize définit la taille max d\'un fichier téléversé. post_max_size contrôle la taille totale des données POST.', tag:'PHP'},
+
+    {q: 'Quel type d\'adresse est 192.168.0.1 ?',
+     choices:['Adresse publique IPv4','Adresse multicast','Adresse privée IPv4','Adresse IPv6'], correct:2,
+     explanation: '192.168.x.x fait partie des plages d\'adresses IPv4 privées (RFC1918).', tag:'Réseau'}
+  ]
+
+  // === STATE ===
+  let state = {
+    index: 0,
+    score: 0,
+    answered: 0,
+    completed: false,
+    timer: null,
+    remaining: config.timePerQuestion
+  }
+
+  // === UI refs ===
+  const qEl = document.getElementById('question')
+  const answersEl = document.getElementById('answers')
+  const scoreEl = document.getElementById('score')
+  const highEl = document.getElementById('highscore')
+  const progressBar = document.getElementById('progress-bar')
+  const explainEl = document.getElementById('explain')
+  const nextBtn = document.getElementById('next-btn')
+  const restartBtn = document.getElementById('restart-btn')
+  const timerDisplay = document.getElementById('timer-display')
+  const totalQ = document.getElementById('total-q')
+  const answeredQ = document.getElementById('answered-q')
+  const viewQBtn = document.getElementById('view-questions')
+  const qListDialog = document.getElementById('q-list')
+  const qListBody = document.getElementById('q-list-body')
+  const closeList = document.getElementById('close-list')
+  const resetHigh = document.getElementById('reset-highscore')
+  const showReview = document.getElementById('show-review')
+
+  totalQ.textContent = questions.length
+
+  // load saved highscore
+  function loadHighscore(){
+    try{
+      const raw = localStorage.getItem(config.saveKey)
+      if(!raw) return null
+      const parsed = JSON.parse(raw)
+      return parsed.highscore || null
+    }catch(e){return null}
+  }
+  function saveHighscore(score){
+    const payload = {highscore:score, updated: new Date().toISOString()}
+    localStorage.setItem(config.saveKey, JSON.stringify(payload))
+  }
+
+  function updateHighUI(){
+    const h = loadHighscore()
+    highEl.textContent = h===null ? '—' : h
+  }
+
+  // render question
+  function render(){
+    explainEl.textContent = ''
+    const q = questions[state.index]
+    qEl.textContent = `${state.index+1}. ${q.q}`
+    answersEl.innerHTML = ''
+    const template = document.getElementById('question-template')
+    q.choices.forEach((c, i)=>{
+      const node = template.content.firstElementChild.cloneNode(true)
+      node.textContent = c
+      node.dataset.idx = i
+      node.addEventListener('click', onAnswer)
+      answersEl.appendChild(node)
+    })
+    updateProgress()
+    updateInfo()
+    prepareTimer()
+  }
+
+  function onAnswer(e){
+    if(state.completed) return
+    const btn = e.currentTarget
+    const chosen = Number(btn.dataset.idx)
+    const q = questions[state.index]
+    // disable all
+    Array.from(answersEl.children).forEach(b=>b.disabled=true)
+
+    // correct/wrong mark
+    if(chosen === q.correct){
+      btn.classList.add('correct')
+      state.score += config.pointsCorrect
+    } else {
+      btn.classList.add('wrong')
+      state.score += config.pointsWrong
+      // highlight correct answer
+      const correctBtn = Array.from(answersEl.children).find(el=>Number(el.dataset.idx)===q.correct)
+      if(correctBtn) correctBtn.classList.add('correct')
+    }
+
+    // show explanation
+    explainEl.textContent = q.explanation || ''
+    state.answered += 1
+    updateInfo()
+    updateScore()
+    clearTimer()
+  }
+
+  function updateScore(){
+    scoreEl.textContent = state.score
+    const h = loadHighscore()
+    if(h===null || state.score>h){
+      saveHighscore(state.score)
+      updateHighUI()
+    }
+  }
+
+  function updateInfo(){
+    answeredQ.textContent = state.answered
+  }
+
+  function updateProgress(){
+    const pct = Math.round(((state.index)/questions.length)*100)
+    progressBar.style.width = pct + '%'
+  }
+
+  function nextQuestion(){
+    if(state.index < questions.length-1){
+      state.index += 1
+      render()
+    } else {
+      finish()
+    }
+  }
+
+  function finish(){
+    state.completed = true
+    explainEl.textContent = `Quiz terminé — Score final : ${state.score}`
+    progressBar.style.width = '100%'
+    clearTimer()
+  }
+
+  function restart(){
+    state = {index:0,score:0,answered:0,completed:false,timer:null,remaining:config.timePerQuestion}
+    updateScore(); updateInfo(); updateHighUI(); render()
+  }
+
+  // Timer helpers
+  function prepareTimer(){
+    clearTimer()
+    if(config.timePerQuestion<=0) {timerDisplay.textContent='—';return}
+    state.remaining = config.timePerQuestion
+    timerDisplay.textContent = state.remaining
+    state.timer = setInterval(()=>{
+      state.remaining -=1
+      timerDisplay.textContent = state.remaining
+      if(state.remaining<=0){
+        // timeout: mark wrong and auto move on
+        clearTimer()
+        // mark as wrong by disabling and revealing correct
+        Array.from(answersEl.children).forEach(b=>b.disabled=true)
+        const correctBtn = Array.from(answersEl.children).find(el=>Number(el.dataset.idx)===questions[state.index].correct)
+        if(correctBtn) correctBtn.classList.add('correct')
+        explainEl.textContent = 'Temps écoulé. ' + (questions[state.index].explanation || '')
+        state.score += config.pointsWrong
+        state.answered +=1
+        updateScore(); updateInfo()
+      }
+    },1000)
+  }
+  function clearTimer(){ if(state.timer){ clearInterval(state.timer); state.timer=null; timerDisplay.textContent='--' }}
+
+  // Dialog: list of questions
+  function showQuestionList(){
+    qListBody.innerHTML = ''
+    questions.forEach((q,i)=>{
+      const el = document.createElement('div')
+      el.style.padding='8px'; el.style.borderBottom='1px solid rgba(255,255,255,0.02)'
+      el.innerHTML = `<strong>${i+1}.</strong> ${q.q} <div class=\"small muted\">${q.tag || ''}</div>`
+      qListBody.appendChild(el)
+    })
+    qListDialog.showModal()
+  }
+
+  // Review (simple): open window with answered count and correct answers
+  function showReview(){
+    let out = 'Révision rapide:\n\n'
+    questions.forEach((q,i)=>{
+      out += `${i+1}. ${q.q}\n  Réponse correcte: ${q.choices[q.correct]}\n\n`
+    })
+    // open in new tab as plain text to allow copy
+    const w = window.open('about:blank','_blank')
+    w.document.write('<pre style="white-space:pre-wrap;font-family:monospace;padding:16px">'+out+'</pre>')
+    w.document.title = 'Révision — Questions'
+  }
+
+  // Inits
+  nextBtn.addEventListener('click', ()=>{ if(!state.completed) nextQuestion(); else restart() })
+  restartBtn.addEventListener('click', restart)
+  viewQBtn.addEventListener('click', showQuestionList)
+  closeList.addEventListener('click', ()=>qListDialog.close())
+  resetHigh.addEventListener('click', ()=>{ localStorage.removeItem(config.saveKey); updateHighUI(); alert('Meilleur score supprimé (local).') })
+  showReview.addEventListener('click', showReview)
+
+  // keyboard shortcuts
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='n') nextQuestion()
+    if(e.key==='r') restart()
+  })
+
+  // initial render
+  updateHighUI()
+  render()
+
+  // accessibility: focus first answer when rendered
+  const obs = new MutationObserver(()=>{
+    const first = answersEl.querySelector('.btn')
+    if(first) first.focus()
+  })
+  obs.observe(answersEl,{childList:true})
+  </script>
+</body>
+</html>
