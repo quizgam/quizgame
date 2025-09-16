@@ -1,48 +1,161 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Mini Quiz Test</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Quiz Cybersécurité & Dev</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f4f4f4; padding:20px; }
-    .question { font-size:18px; margin-bottom:12px; }
-    .btn { display:block; margin:6px 0; padding:10px; background:#ddd; border:none; cursor:pointer; border-radius:5px; }
-    .btn.correct { background:#4caf50; color:white; }
-    .btn.wrong { background:#f44336; color:white; }
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#2f6fbf;--muted:#9aa7bf;--success:#1fa055;--danger:#e04f5f}
+    *{box-sizing:border-box}
+    body{font-family:Arial, sans-serif;margin:0;min-height:100vh;background:#071029;color:#e6eef8;display:flex;align-items:center;justify-content:center;padding:24px}
+    .wrap{width:100%;max-width:900px}
+    .card{background:#0b1220;border:1px solid rgba(255,255,255,0.08);padding:18px;border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6)}
+    h1{font-size:22px;margin:0 0 12px}
+    .question{font-size:18px;margin-bottom:12px}
+    .answers{display:flex;flex-direction:column;gap:10px}
+    .btn{background:transparent;border:1px solid rgba(255,255,255,0.1);padding:12px;border-radius:10px;color:inherit;text-align:left;cursor:pointer}
+    .btn:hover{transform:translateY(-3px)}
+    .btn.correct{border-color:var(--success);background:rgba(31,160,85,0.1)}
+    .btn.wrong{border-color:var(--danger);background:rgba(224,79,95,0.1)}
+    .controls{display:flex;gap:8px;margin-top:14px}
+    .small{font-size:13px;color:var(--muted)}
+    .progress{height:12px;background:rgba(255,255,255,0.1);border-radius:8px;overflow:hidden;margin-top:12px}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#5aa0ff);width:0%}
+    .score{font-size:22px;margin-top:10px}
+    .explain{margin-top:10px;color:var(--muted);font-size:14px}
+    button.action{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.2);color:#e6eef8}
   </style>
 </head>
 <body>
-  <h1>Quiz Test</h1>
-  <div class="question" id="question">Quel port utilise HTTPS ?</div>
-  <div id="answers"></div>
-  <div id="score">Score : 0</div>
+  <div class="wrap">
+    <div class="card">
+      <h1>Quiz : Cybersécurité & Développement</h1>
+      <div id="question" class="question">Chargement...</div>
+      <div id="answers" class="answers"></div>
 
-  <script>
-    const question = {
-      q: "Quel port utilise HTTPS ?",
-      choices: ["80", "21", "22", "443"],
-      correct: 3
-    };
+      <div class="controls">
+        <div class="small">Temps restant : <span id="timer-display">--</span>s</div>
+        <button id="next-btn" class="action" style="margin-left:auto">Suivant</button>
+        <button id="restart-btn" class="ghost">Recommencer</button>
+      </div>
 
-    let score = 0;
-    const answersEl = document.getElementById("answers");
-    const scoreEl = document.getElementById("score");
+      <div class="explain" id="explain"></div>
+      <div class="progress"><i id="progress-bar"></i></div>
+      <div class="score">Score : <span id="score">0</span></div>
+    </div>
+  </div>
 
-    question.choices.forEach((choice, i) => {
-      const btn = document.createElement("button");
-      btn.textContent = choice;
-      btn.className = "btn";
-      btn.onclick = () => {
-        if (i === question.correct) {
-          btn.classList.add("correct");
-          score += 1;
-        } else {
-          btn.classList.add("wrong");
-        }
-        scoreEl.textContent = "Score : " + score;
-      };
-      answersEl.appendChild(btn);
-    });
-  </script>
+<script>
+// === CONFIGURATION ===
+const config = { timePerQuestion: 15, pointsCorrect: 10, pointsWrong: -2 };
+
+// === QUESTIONS ===
+const questions = [
+  {q:'Quel protocole sécurise la navigation web ?',choices:['HTTP','FTP','HTTPS','SMTP'],correct:2,explanation:'HTTPS chiffre les échanges via TLS/SSL.'},
+  {q:'Quelle commande supprime toutes les lignes d’une table sans supprimer la table ?',choices:['DELETE FROM table;','DROP TABLE;','TRUNCATE TABLE table;','REMOVE FROM table;'],correct:2,explanation:'TRUNCATE est plus rapide que DELETE pour vider une table.'},
+  {q:'Quelle superglobale PHP contient les paramètres d’URL ?',choices:['$_POST','$_GET','$_SESSION','$_COOKIE'],correct:1,explanation:'Les variables passées dans l’URL sont accessibles avec $_GET.'},
+  {q:'phpMyAdmin sert à ?',choices:['Éditer du PHP','Gérer MySQL via le web','Compiler PHP','Analyser le réseau'],correct:1,explanation:'phpMyAdmin est une interface web pour administrer MySQL/MariaDB.'},
+  {q:'Quel port est utilisé par SSH ?',choices:['21','22','80','443'],correct:1,explanation:'SSH utilise par défaut le port TCP 22.'}
+];
+
+// === STATE ===
+let state = {index:0,score:0,answered:0,completed:false,timer:null,remaining:config.timePerQuestion};
+
+// === UI refs ===
+const qEl=document.getElementById('question');
+const answersEl=document.getElementById('answers');
+const scoreEl=document.getElementById('score');
+const explainEl=document.getElementById('explain');
+const nextBtn=document.getElementById('next-btn');
+const restartBtn=document.getElementById('restart-btn');
+const timerDisplay=document.getElementById('timer-display');
+const progressBar=document.getElementById('progress-bar');
+
+// === FUNCTIONS ===
+function render(){
+  explainEl.textContent='';
+  const q=questions[state.index];
+  qEl.textContent=`${state.index+1}. ${q.q}`;
+  answersEl.innerHTML='';
+  q.choices.forEach((c,i)=>{
+    const btn=document.createElement('button');
+    btn.className='btn';
+    btn.textContent=c;
+    btn.dataset.idx=i;
+    btn.onclick=onAnswer;
+    answersEl.appendChild(btn);
+  });
+  updateProgress();
+  prepareTimer();
+}
+
+function onAnswer(e){
+  if(state.completed)return;
+  const chosen=Number(e.currentTarget.dataset.idx);
+  const q=questions[state.index];
+  Array.from(answersEl.children).forEach(b=>b.disabled=true);
+  if(chosen===q.correct){
+    e.currentTarget.classList.add('correct');
+    state.score+=config.pointsCorrect;
+  } else {
+    e.currentTarget.classList.add('wrong');
+    const correctBtn=answersEl.children[q.correct];
+    if(correctBtn)correctBtn.classList.add('correct');
+    state.score+=config.pointsWrong;
+  }
+  explainEl.textContent=q.explanation;
+  state.answered++;
+  scoreEl.textContent=state.score;
+  clearTimer();
+  setTimeout(nextQuestion,1500);
+}
+
+function nextQuestion(){
+  if(state.index<questions.length-1){state.index++;render();}
+  else finish();
+}
+function finish(){
+  state.completed=true;
+  qEl.textContent='Quiz terminé !';
+  explainEl.textContent=`Score final : ${state.score}`;
+  clearTimer();
+  progressBar.style.width='100%';
+}
+function restart(){
+  state={index:0,score:0,answered:0,completed:false,timer:null,remaining:config.timePerQuestion};
+  scoreEl.textContent=0;
+  render();
+}
+function updateProgress(){
+  const pct=Math.round((state.index/questions.length)*100);
+  progressBar.style.width=pct+'%';
+}
+function prepareTimer(){
+  clearTimer();
+  if(config.timePerQuestion<=0){timerDisplay.textContent='—';return;}
+  state.remaining=config.timePerQuestion;
+  timerDisplay.textContent=state.remaining;
+  state.timer=setInterval(()=>{
+    state.remaining--;
+    timerDisplay.textContent=state.remaining;
+    if(state.remaining<=0){
+      clearTimer();
+      explainEl.textContent='Temps écoulé. '+questions[state.index].explanation;
+      state.score+=config.pointsWrong;
+      scoreEl.textContent=state.score;
+      setTimeout(nextQuestion,1500);
+    }
+  },1000);
+}
+function clearTimer(){if(state.timer){clearInterval(state.timer);state.timer=null;timerDisplay.textContent='--';}}
+
+// === EVENTS ===
+nextBtn.onclick=()=>{if(!state.completed)nextQuestion();else restart();}
+restartBtn.onclick=restart;
+
+// === INIT ===
+render();
+</script>
 </body>
 </html>
