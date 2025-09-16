@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Jeu du Serpent Avancé</title>
+  <title>Snake Game Mobile</title>
   <style>
     body {
       display: flex;
@@ -20,6 +20,7 @@
       background: #1a2335;
       border: 2px solid #2f6fbf;
       border-radius: 8px;
+      touch-action: none; /* évite le scroll pendant le jeu */
     }
     .info {
       margin-top: 12px;
@@ -45,7 +46,7 @@
   </style>
 </head>
 <body>
-  <h1>🐍 Snake Game Avancé</h1>
+  <h1>🐍 Snake Game Mobile</h1>
   <canvas id="game" width="400" height="400"></canvas>
   <div class="info">Score : <span id="score">0</span> | Niveau : <span id="level">1</span></div>
   <button class="btn" id="restart">Rejouer</button>
@@ -85,11 +86,35 @@ function initGame() {
   game = setInterval(draw, speed);
 }
 
+// === Contrôles clavier (PC) ===
 document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
   else if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
   else if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
   else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
+});
+
+// === Contrôles tactiles (Mobile) ===
+let touchStartX = 0, touchStartY = 0;
+
+canvas.addEventListener("touchstart", e => {
+  const touch = e.touches[0];
+  touchStartX = touch.clientX;
+  touchStartY = touch.clientY;
+});
+
+canvas.addEventListener("touchend", e => {
+  const touch = e.changedTouches[0];
+  let dx = touch.clientX - touchStartX;
+  let dy = touch.clientY - touchStartY;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > 0 && direction !== "LEFT") direction = "RIGHT";
+    else if (dx < 0 && direction !== "RIGHT") direction = "LEFT";
+  } else {
+    if (dy > 0 && direction !== "UP") direction = "DOWN";
+    else if (dy < 0 && direction !== "DOWN") direction = "UP";
+  }
 });
 
 function draw() {
@@ -122,7 +147,7 @@ function draw() {
     if (score % 5 === 0) {
       level++;
       levelEl.textContent = level;
-      speed = Math.max(60, speed - 10); // vitesse max
+      speed = Math.max(60, speed - 10);
       clearInterval(game);
       game = setInterval(draw, speed);
     }
@@ -160,7 +185,7 @@ function collision(head, array) {
 function saveScore(score) {
   highScores.push(score);
   highScores.sort((a, b) => b - a);
-  highScores = highScores.slice(0, 5); // top 5
+  highScores = highScores.slice(0, 5);
   localStorage.setItem("snakeScores", JSON.stringify(highScores));
   renderScores();
 }
