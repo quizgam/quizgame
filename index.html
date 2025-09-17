@@ -1,168 +1,525 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Snake Game Amélioré</title>
-  <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: #0f1724;
-      color: #fff;
-      height: 100vh;
-      margin: 0;
-      font-family: Arial, sans-serif;
-    }
-    h1 { margin: 10px 0; }
-    canvas {
-      background: #1a2335;
-      border: 2px solid #2f6fbf;
-      border-radius: 8px;
-    }
-    .info {
-      margin-top: 10px;
-      font-size: 18px;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>FastDrive — Jeu de voiture 3D stylisé</title>
+<style>
+  :root{
+    --bg:#071022; --panel:#0b1220; --accent:#ff5f1f; --muted:#9aa7bf;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;height:100vh;background:linear-gradient(180deg,#071022 0%, #0b1630 100%);display:flex;align-items:center;justify-content:center;font-family:Inter,system-ui,Arial;color:#e6eef8}
+  .stage{width:100%;max-width:1100px;height:75vh;display:grid;grid-template-columns:1fr 300px;gap:18px;padding:20px}
+  .gamecard{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:12px;position:relative;overflow:hidden;box-shadow:0 10px 50px rgba(2,6,20,0.6)}
+  canvas{width:100%;height:100%;display:block;border-radius:8px;background:linear-gradient(180deg,#10203a,#071022)}
+  .hud{position:absolute;left:18px;top:18px;background:rgba(0,0,0,0.25);padding:8px 12px;border-radius:10px;font-size:14px;color:var(--muted)}
+  .hud .speed{font-size:20px;color:#fff;font-weight:600}
+  .panel{background:var(--panel);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .title{font-weight:700;font-size:18px}
+  .row{display:flex;justify-content:space-between;align-items:center}
+  .controls{display:flex;gap:8px;flex-wrap:wrap}
+  button{background:var(--accent);border:none;padding:8px 10px;border-radius:8px;color:#fff;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
+  .meter{height:10px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden}
+  .meter > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#ff9a4a);width:0%}
+  .legend{font-size:13px;color:var(--muted)}
+  .footer{margin-top:auto;color:var(--muted);font-size:13px}
+  .touchpad{position: absolute; right: 20px; bottom: 20px; width: 120px; height: 120px; border-radius: 12px; background: rgba(255,255,255,0.03); display:flex;align-items:center;justify-content:center; user-select:none;}
+  .touchpad .dot{width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,0.08)}
+  @media (max-width:980px){ .stage{grid-template-columns:1fr} .touchpad{right:12px;bottom:12px} }
+</style>
 </head>
 <body>
-  <h1>🐍 Snake Amélioré</h1>
-  <canvas id="game" width="400" height="400"></canvas>
-  <div class="info">Score : <span id="score">0</span></div>
+  <div class="stage">
+    <div class="gamecard" id="gamecard">
+      <div class="hud">
+        <div>Vitesse <span class="speed" id="speed">0</span> km/h</div>
+        <div class="legend">Score: <strong id="score">0</strong></div>
+      </div>
+      <canvas id="c"></canvas>
+      <div class="touchpad" id="touchpad" aria-hidden="true"><div class="dot"></div></div>
+    </div>
+
+    <aside class="panel">
+      <div class="title">FastDrive — Réglages</div>
+
+      <div class="row">
+        <div>
+          <div class="legend">Vitesse initiale</div>
+          <div class="legend small">plus élevée = plus difficile</div>
+        </div>
+        <input id="initSpeed" type="range" min="2" max="12" value="6">
+      </div>
+
+      <div class="row">
+        <div>
+          <div class="legend">Trafic</div>
+          <div class="legend small">plus de voitures</div>
+        </div>
+        <input id="traffic" type="range" min="0" max="30" value="10">
+      </div>
+
+      <div class="row">
+        <div>
+          <div class="legend">Volume sons</div>
+        </div>
+        <input id="volume" type="range" min="0" max="100" value="70">
+      </div>
+
+      <div class="controls">
+        <button id="startBtn">Démarrer</button>
+        <button id="pauseBtn" class="ghost">Pause</button>
+        <button id="restartBtn" class="ghost">Recommencer</button>
+      </div>
+
+      <div>
+        <div class="legend">Commandes</div>
+        <div class="legend small">Flèches / A D pour tourner, ↑ pour accélérer, ↓ pour freiner. Sur mobile : glisser sur le canvas.</div>
+      </div>
+
+      <div class="footer">Développé &middot; prototype — demande des assets si tu veux textures haute-rés</div>
+    </aside>
+  </div>
 
 <script>
-// === Paramètres ===
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const scoreEl = document.getElementById("score");
+/* =============================
+   FastDrive — Pseudo-3D racing
+   Single-file, no external libs
+   Features:
+   - Road perspective with segments
+   - Parallax background (hills/sky)
+   - Traffic obstacles (cars) with simple collision
+   - Steering (keyboard + touch swipe)
+   - Accélération, braking, drift
+   - Sound with WebAudio (engine + crash + collect)
+   - Score & level progression
+   ==============================*/
 
-const box = 20;
-let snake, direction, food, score, game;
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const speedEl = document.getElementById('speed');
+const scoreEl = document.getElementById('score');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const restartBtn = document.getElementById('restartBtn');
+const initSpeedInput = document.getElementById('initSpeed');
+const trafficInput = document.getElementById('traffic');
+const volumeInput = document.getElementById('volume');
+const touchpad = document.getElementById('touchpad');
 
-// Images (serpent + papillon)
-const headImg = new Image();
-headImg.src = "https://i.imgur.com/YZbXcRY.png"; // tête serpent
-const bodyImg = new Image();
-bodyImg.src = "https://i.imgur.com/dyjtZ3N.png"; // corps serpent
-const butterflyImg = new Image();
-butterflyImg.src = "https://i.imgur.com/GgGqXfF.png"; // papillon
-
-// Sons
-const moveSound = new Audio("https://www.soundjay.com/button/beep-07.wav");
-const eatSound = new Audio("https://www.soundjay.com/button/beep-08b.wav");
-
-// Initialisation
-function initGame() {
-  snake = [{ x: 9 * box, y: 10 * box }];
-  direction = "RIGHT";
-  food = randomFood();
-  score = 0;
-  scoreEl.textContent = score;
-  if (game) clearInterval(game);
-  game = setInterval(draw, 120);
+let W, H, scale;
+function resize(){ 
+  W = canvas.width = canvas.clientWidth; 
+  H = canvas.height = canvas.clientHeight;
+  scale = Math.min(W/900, H/600);
 }
+window.addEventListener('resize', resize);
+resize();
 
-// Génère une position aléatoire pour la nourriture
-function randomFood() {
+// ----- Game state -----
+let running=false, paused=false, lastTime=0, frame=0;
+let player = { x:0, z:0, speed:0, maxSpeed: 12, laneW: 120, width: 48, height: 96 };
+let segments = [];
+let road = { length: 400, laneCount: 3 };
+let scroll = 0;
+let cars = []; // traffic
+let score=0, level=1;
+let baseSpeed = Number(initSpeedInput.value); // tiles per frame
+let trafficDensity = Number(trafficInput.value);
+let volume = Number(volumeInput.value)/100;
+
+// Audio (WebAudio simple)
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new (AudioCtx)();
+let engineOsc=null, engineGain=null;
+
+function soundInit(){
+  if(engineOsc) return;
+  engineOsc = audioCtx.createOscillator(); engineOsc.type='sawtooth';
+  engineGain = audioCtx.createGain(); engineGain.gain.value = 0;
+  engineOsc.connect(engineGain); engineGain.connect(audioCtx.destination);
+  engineOsc.frequency.value = 60;
+  engineOsc.start();
+}
+function setEngine(vol){
+  soundInit();
+  engineGain.gain.value = vol * volume * 0.01;
+  engineOsc.frequency.value = 50 + player.speed*8;
+}
+function playBeep(freq, time=0.08, gain=0.08){
+  const g = audioCtx.createGain(); g.gain.value = gain * volume;
+  const o = audioCtx.createOscillator(); o.type='sine'; o.frequency.value = freq;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + time);
+}
+function playCrash(){ playBeep(90, 0.25, 0.15); }
+function playCollect(){ playBeep(900, 0.12, 0.12); }
+
+// ----- Helper: project 3D point to 2D (simple perspective) -----
+function project(x, y, z, cameraX=0, cameraY=100, cameraZ=0){
+  // cameraY is pseudo height
+  const dz = z - cameraZ;
+  const f = cameraY / (dz || 0.0001);
   return {
-    x: Math.floor(Math.random() * (canvas.width / box)) * box,
-    y: Math.floor(Math.random() * (canvas.height / box)) * box
+    x: (1 + (x - cameraX) * f) * W/2,
+    y: (1 - (y) * f) * H/2,
+    scale: f
   };
 }
 
-// === Contrôles clavier ===
-document.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
-  else if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
-  else if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
-  else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
-});
-
-// === Contrôles tactiles ===
-let touchStartX = 0, touchStartY = 0;
-canvas.addEventListener("touchstart", e => {
-  const touch = e.touches[0];
-  touchStartX = touch.clientX;
-  touchStartY = touch.clientY;
-});
-canvas.addEventListener("touchend", e => {
-  const touch = e.changedTouches[0];
-  let dx = touch.clientX - touchStartX;
-  let dy = touch.clientY - touchStartY;
-
-  if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 0 && direction !== "LEFT") direction = "RIGHT";
-    else if (dx < 0 && direction !== "RIGHT") direction = "LEFT";
-  } else {
-    if (dy > 0 && direction !== "UP") direction = "DOWN";
-    else if (dy < 0 && direction !== "DOWN") direction = "UP";
+// Build road segments (flat with repeating hills)
+function buildRoad(){
+  segments = [];
+  for(let i=0;i<road.length;i++){
+    segments.push({
+      z: i * 200,
+      curve: Math.sin(i/10)*0.9,
+      y: Math.sin(i/12)*40 + Math.sin(i/30)*20,
+      color: (Math.floor(i/3)%2===0) ? '#606060' : '#5a5a5a'
+    });
   }
-});
+}
+buildRoad();
 
-// Dessiner le jeu
-function draw() {
-  ctx.fillStyle = "#0f1724";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+// Spawn traffic cars randomly along the road
+function spawnTraffic(){
+  cars = [];
+  const count = Math.max(5, Math.floor(trafficDensity/2));
+  for(let i=0;i<count;i++){
+    const seg = Math.floor(Math.random()*road.length);
+    const lane = (Math.floor(Math.random()*road.laneCount)-1) * player.laneW;
+    cars.push({
+      x: lane + (Math.random()-0.5)*30,
+      z: seg * 200 + Math.random()*1200,
+      speed: baseSpeed * (0.6 + Math.random()*0.8),
+      w: 44, h: 88,
+      color: `hsl(${Math.floor(Math.random()*360)},70%,60%)`
+    });
+  }
+}
+spawnTraffic();
 
-  // Dessiner la nourriture (papillon)
-  ctx.drawImage(butterflyImg, food.x, food.y, box, box);
+// Draw sky with parallax hills
+function drawBackground(dt){
+  // sky gradient
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#0a1b33'); g.addColorStop(1,'#071022');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
 
-  // Dessiner le serpent
-  for (let i = 0; i < snake.length; i++) {
-    let part = snake[i];
-    if (i === 0) {
-      ctx.drawImage(headImg, part.x, part.y, box, box);
-    } else {
-      ctx.drawImage(bodyImg, part.x, part.y, box, box);
+  // sun
+  ctx.beginPath(); ctx.fillStyle='rgba(255,210,120,0.06)';
+  ctx.arc(W*0.85, H*0.18, 90, 0, Math.PI*2); ctx.fill();
+
+  // distant hills layers
+  for(let layer=0; layer<3; layer++){
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(20,40,60,${0.16 + layer*0.06})`;
+    let amplitude = 30 + layer*30;
+    ctx.moveTo(0, H*0.6 + layer*20);
+    for(let x=0;x<=W;x+=20){
+      const y = Math.sin((x/200)+(frame*0.002*(1+layer))) * amplitude;
+      ctx.lineTo(x, H*0.6 + layer*20 + y);
+    }
+    ctx.lineTo(W, H); ctx.lineTo(0,H); ctx.closePath(); ctx.fill();
+  }
+}
+
+// Draw road in strips (from far to near)
+function drawRoad(){
+  const camZ = scroll;
+  const maxDepth = 1000;
+  for(let i=0; i<300; i++){
+    const segIndex = Math.floor((i + Math.floor(camZ/200)) % segments.length);
+    const seg = segments[segIndex];
+    const z1 = (seg.z) - camZ;
+    const z2 = (seg.z + 200) - camZ;
+    if(z2 <= 0) continue;
+    const p1 = project(0, seg.y/100, z1, player.x, 200, 0);
+    const p2 = project(0, seg.y/100, z2, player.x, 200, 0);
+    if(!p1 || !p2) continue;
+    // road width at those z
+    const roadW = 3000 * p1.scale;
+    const roadW2 = 3000 * p2.scale;
+    const left1 = p1.x - roadW/2, right1 = p1.x + roadW/2;
+    const left2 = p2.x - roadW2/2, right2 = p2.x + roadW2/2;
+
+    // roadside grass
+    ctx.fillStyle = '#103030';
+    ctx.beginPath();
+    ctx.moveTo(left2 - 100* p2.scale, p2.y); ctx.lineTo(right2 + 100* p2.scale, p2.y);
+    ctx.lineTo(right1 + 100* p1.scale, p1.y); ctx.lineTo(left1 - 100* p1.scale, p1.y); ctx.closePath();
+    ctx.fill();
+
+    // road
+    ctx.fillStyle = seg.color;
+    ctx.beginPath();
+    ctx.moveTo(left2, p2.y); ctx.lineTo(right2, p2.y); ctx.lineTo(right1, p1.y); ctx.lineTo(left1, p1.y); ctx.closePath();
+    ctx.fill();
+
+    // center dashed lines
+    ctx.strokeStyle = '#ffd95e';
+    ctx.lineWidth = Math.max(1, 6*p1.scale);
+    ctx.beginPath();
+    const dashLen = 40 * p1.scale;
+    ctx.setLineDash([dashLen, dashLen*2]);
+    ctx.moveTo(p2.x, p2.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// Draw traffic cars with perspective
+function drawTraffic(){
+  cars.forEach(car=>{
+    const zRel = car.z - scroll;
+    if(zRel < -200) {
+      // recycle ahead
+      car.z += road.length*200;
+      car.x = (Math.floor(Math.random()*road.laneCount)-1)*player.laneW + (Math.random()-0.5)*30;
+      car.speed = baseSpeed * (0.6 + Math.random()*0.8);
+    }
+    if(zRel < 50 || zRel > 5000) return; // too close or far
+    const p = project(car.x/100, 0, zRel, player.x, 200, 0);
+    const scale = p.scale;
+    const w = car.w * scale;
+    const h = car.h * scale;
+    // car body
+    ctx.fillStyle = car.color;
+    ctx.fillRect(p.x - w/2, p.y - h, w, h);
+    // windows
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(p.x - w/4, p.y - h + h*0.15, w/2, h*0.25);
+  });
+}
+
+// Draw player's car as sprite (simple shape) at bottom center
+function drawPlayer(){
+  const px = W/2 + (player.x) * (W/900);
+  const py = H * 0.85;
+  const w = player.width * (H/600);
+  const h = player.height * (H/600);
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(px, py + h*0.55, w*0.6, h*0.25, 0,0,Math.PI*2); ctx.fill();
+  // body
+  ctx.fillStyle = '#ff5f1f';
+  roundRect(ctx, px - w/2, py - h, w, h, 8);
+  // window
+  ctx.fillStyle='rgba(255,255,255,0.18)';
+  roundRect(ctx, px - w*0.18, py - h + h*0.12, w*0.36, h*0.2, 3);
+  // wheels
+  ctx.fillStyle='black';
+  ctx.fillRect(px - w*0.45, py - h*0.2, w*0.12, h*0.28);
+  ctx.fillRect(px + w*0.33, py - h*0.2, w*0.12, h*0.28);
+}
+
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fill();
+}
+
+// Collision detection player-vs-traffic simplified by projecting car box to screen and checking overlap
+function checkCollisions(){
+  const px = W/2 + (player.x) * (W/900);
+  const py = H * 0.85;
+  const pw = player.width * (H/600);
+  const ph = player.height * (H/600);
+  let collided=false;
+  for(let car of cars){
+    const zRel = car.z - scroll;
+    if(zRel < 0 || zRel > 3000) continue;
+    const p = project(car.x/100, 0, zRel, player.x, 200, 0);
+    const cw = car.w * p.scale;
+    const ch = car.h * p.scale;
+    const cx = p.x, cy = p.y;
+    // bounding boxes
+    if(Math.abs(cx - px) < (cw/2 + pw/2) && Math.abs(cy - py) < (ch/2 + ph/2)){
+      collided = true; break;
     }
   }
+  if(collided){
+    playCrash();
+    running = false;
+    paused = false;
+    // small flash
+    flash();
+    // show restart
+    restartBtn.classList.remove('ghost');
+    startBtn.textContent = 'Démarrer';
+  }
+}
 
-  // Calcul nouvelle position de la tête
-  let snakeX = snake[0].x;
-  let snakeY = snake[0].y;
+// simple white flash on crash
+function flash(){
+  const t0 = performance.now();
+  function f(now){
+    const dt = (now - t0)/200;
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0,0.5 - dt)})`;
+    ctx.fillRect(0,0,W,H);
+    if(dt < 0.5) requestAnimationFrame(f);
+  }
+  requestAnimationFrame(f);
+}
 
-  if (direction === "LEFT") snakeX -= box;
-  if (direction === "UP") snakeY -= box;
-  if (direction === "RIGHT") snakeX += box;
-  if (direction === "DOWN") snakeY += box;
+// ===== input handling =====
+let input = { left:false, right:false, up:false, down:false };
+window.addEventListener('keydown', e=>{
+  if(e.key === 'ArrowLeft' || e.key==='a') input.left=true;
+  if(e.key === 'ArrowRight' || e.key==='d') input.right=true;
+  if(e.key === 'ArrowUp' || e.key==='w') input.up=true;
+  if(e.key === 'ArrowDown' || e.key==='s') input.down=true;
+  if(e.key === ' '){ // pause
+    togglePause();
+  }
+});
+window.addEventListener('keyup', e=>{
+  if(e.key === 'ArrowLeft' || e.key==='a') input.left=false;
+  if(e.key === 'ArrowRight' || e.key==='d') input.right=false;
+  if(e.key === 'ArrowUp' || e.key==='w') input.up=false;
+  if(e.key === 'ArrowDown' || e.key==='s') input.down=false;
+});
 
-  // Bordures (téléportation)
-  if (snakeX < 0) snakeX = canvas.width - box;
-  if (snakeY < 0) snakeY = canvas.height - box;
-  if (snakeX >= canvas.width) snakeX = 0;
-  if (snakeY >= canvas.height) snakeY = 0;
-
-  // Manger le papillon
-  if (snakeX === food.x && snakeY === food.y) {
-    score++;
-    scoreEl.textContent = score;
-    food = randomFood();
-    eatSound.play();
+// touch steering: detect swipe on canvas
+let tStartX=0, tStartY=0, tStartT=0;
+canvas.addEventListener('touchstart', e=>{
+  const t = e.touches[0];
+  tStartX = t.clientX; tStartY = t.clientY; tStartT = performance.now();
+});
+canvas.addEventListener('touchend', e=>{
+  const t = e.changedTouches[0];
+  const dx = t.clientX - tStartX, dy = t.clientY - tStartY;
+  const dt = performance.now() - tStartT;
+  if(Math.abs(dx) > Math.abs(dy)){
+    if(dx > 20){ input.right = true; setTimeout(()=>input.right=false, 120); }
+    else if(dx < -20){ input.left = true; setTimeout(()=>input.left=false, 120); }
   } else {
-    snake.pop();
+    if(dy < -20){ input.up = true; setTimeout(()=>input.up=false, 120); }
+    else if(dy > 20){ input.down = true; setTimeout(()=>input.down=false, 120); }
   }
+});
 
-  const newHead = { x: snakeX, y: snakeY };
+// quick touchpad tap to steer left/right
+touchpad.addEventListener('touchstart', e=>{
+  const t = e.touches[0];
+  const rect = touchpad.getBoundingClientRect();
+  const rx = (t.clientX - rect.left) / rect.width;
+  if(rx < 0.5){ input.left = true; setTimeout(()=>input.left=false, 120); }
+  else{ input.right = true; setTimeout(()=>input.right=false, 120); }
+});
 
-  // Collision avec soi-même
-  if (collision(newHead, snake)) {
-    clearInterval(game);
-    alert("💀 Game Over! Score final : " + score);
-    initGame();
-    return;
-  }
+// UI buttons
+startBtn.addEventListener('click', ()=>{ if(!running) start(); else { running=false; startBtn.textContent='Démarrer'; }});
+pauseBtn.addEventListener('click', togglePause);
+restartBtn.addEventListener('click', resetGame);
 
-  snake.unshift(newHead);
-  moveSound.play();
+initSpeedInput.addEventListener('input', ()=>{ baseSpeed = Number(initSpeedInput.value); });
+trafficInput.addEventListener('input', ()=>{ trafficDensity = Number(trafficInput.value); spawnTraffic(); });
+volumeInput.addEventListener('input', ()=>{ volume = Number(volumeInput.value)/100; });
+
+// start/pause/reset
+function start(){
+  if(!audioCtx) return;
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  running=true; paused=false; startBtn.textContent='Arrêter';
+  lastTime = performance.now();
+  loop();
+}
+function togglePause(){
+  if(!running) return;
+  paused = !paused;
+  if(!paused) { lastTime = performance.now(); loop(); }
+}
+function resetGame(){
+  running=false; paused=false; scroll = 0; score=0; level=1; player.speed=0; spawnTraffic(); start();
 }
 
-function collision(head, array) {
-  return array.some(part => head.x === part.x && head.y === part.y);
+// main loop
+function loop(now){
+  if(!running || paused) return;
+  const dt = Math.min(40, now - lastTime);
+  lastTime = now;
+  update(dt/1000);
+  render(dt/1000);
+  frame++;
+  requestAnimationFrame(loop);
 }
 
-initGame();
+// update positions
+function update(dt){
+  // steering
+  const steerSpeed = 300; // px per sec
+  if(input.left) player.x -= steerSpeed * dt;
+  if(input.right) player.x += steerSpeed * dt;
+  // clamp lateral range
+  const limit = 300; player.x = Math.max(-limit, Math.min(limit, player.x));
+
+  // acceleration / brake
+  if(input.up) player.speed += 12 * dt;
+  else player.speed -= 6 * dt; // natural decel
+  if(input.down) player.speed -= 18 * dt;
+
+  // clamp speed
+  player.speed = Math.max(0, Math.min(player.maxSpeed + baseSpeed, player.speed));
+
+  // move world
+  scroll += (player.speed * 200) * dt;
+  // wrap
+  if(scroll > road.length * 200) scroll -= road.length*200;
+
+  // update cars - move them by their speed relative to player
+  for(let car of cars){
+    car.z -= (player.speed - car.speed) * 40 * dt;
+    if(car.z < 0) car.z += road.length*200;
+  }
+
+  // pickup check (simple: if you go over same lane center near small objects maybe)
+  // score increases with distance traveled
+  score += Math.floor(player.speed * dt * 10);
+  scoreEl.textContent = score;
+  level = 1 + Math.floor(score/500);
+  setEngine(0.02 + (player.speed/ (player.maxSpeed + baseSpeed)) * 0.18);
+  speedEl.textContent = Math.round(player.speed * 10);
+  // collisions
+  checkCollisions();
+}
+
+// render
+function render(dt){
+  drawBackground(dt);
+  drawRoad();
+  drawTraffic();
+  drawPlayer();
+  // UI meters (speed): draw bar at HUD (we update DOM)
+  // (already updated speed & score)
+}
+
+// init audio context on first interaction (to allow autoplay)
+document.addEventListener('pointerdown', ()=>{ if(audioCtx.state === 'suspended') audioCtx.resume(); soundInit(); }, {once:true});
+
+// initial player setup
+player.x = 0; player.speed = 0; player.maxSpeed = 12; player.width=54; player.height=110;
+
+// initial engine sound off
+setEngine(0);
+
+// init loop (idle animation)
+function idleAnim(){
+  // small breathing movement if not running
+  if(!running){
+    frame++;
+    drawBackground(0.016);
+    drawRoad();
+    drawTraffic();
+    drawPlayer();
+  }
+  requestAnimationFrame(idleAnim);
+}
+idleAnim();
+
+// small start: press start to play
+// expose reset for button
+resetGame();
+
 </script>
 </body>
 </html>
+
