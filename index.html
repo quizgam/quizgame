@@ -2,17 +2,17 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Snake Game Mobile</title>
+  <title>Snake Game Amélioré</title>
   <style>
     body {
       display: flex;
-      justify-content: center;
-      align-items: center;
       flex-direction: column;
-      height: 100vh;
-      margin: 0;
+      align-items: center;
+      justify-content: center;
       background: #0f1724;
       color: #fff;
+      height: 100vh;
+      margin: 0;
       font-family: Arial, sans-serif;
     }
     h1 { margin: 10px 0; }
@@ -20,73 +20,59 @@
       background: #1a2335;
       border: 2px solid #2f6fbf;
       border-radius: 8px;
-      touch-action: none; /* évite le scroll pendant le jeu */
     }
     .info {
-      margin-top: 12px;
-      font-size: 18px;
-    }
-    .btn {
       margin-top: 10px;
-      padding: 8px 14px;
-      font-size: 16px;
-      background: #2f6fbf;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      display: none;
-    }
-    .btn:hover { background: #468de4; }
-    .scores {
-      margin-top: 15px;
-      font-size: 14px;
-      color: #9aa7bf;
+      font-size: 18px;
     }
   </style>
 </head>
 <body>
-  <h1>🐍 Snake Game Mobile</h1>
+  <h1>🐍 Snake Amélioré</h1>
   <canvas id="game" width="400" height="400"></canvas>
-  <div class="info">Score : <span id="score">0</span> | Niveau : <span id="level">1</span></div>
-  <button class="btn" id="restart">Rejouer</button>
-  <div class="scores">
-    <h3>🏆 Meilleurs Scores</h3>
-    <ol id="highscores"></ol>
-  </div>
+  <div class="info">Score : <span id="score">0</span></div>
 
 <script>
+// === Paramètres ===
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
-const levelEl = document.getElementById("level");
-const restartBtn = document.getElementById("restart");
-const highScoresEl = document.getElementById("highscores");
 
-const box = 20; 
-let snake, direction, food, score, level, speed, game;
+const box = 20;
+let snake, direction, food, score, game;
 
-// Charger meilleurs scores du localStorage
-let highScores = JSON.parse(localStorage.getItem("snakeScores")) || [];
+// Images (serpent + papillon)
+const headImg = new Image();
+headImg.src = "https://i.imgur.com/YZbXcRY.png"; // tête serpent
+const bodyImg = new Image();
+bodyImg.src = "https://i.imgur.com/dyjtZ3N.png"; // corps serpent
+const butterflyImg = new Image();
+butterflyImg.src = "https://i.imgur.com/GgGqXfF.png"; // papillon
 
+// Sons
+const moveSound = new Audio("https://www.soundjay.com/button/beep-07.wav");
+const eatSound = new Audio("https://www.soundjay.com/button/beep-08b.wav");
+
+// Initialisation
 function initGame() {
   snake = [{ x: 9 * box, y: 10 * box }];
-  direction = null;
-  food = {
-    x: Math.floor(Math.random() * 20) * box,
-    y: Math.floor(Math.random() * 20) * box
-  };
+  direction = "RIGHT";
+  food = randomFood();
   score = 0;
-  level = 1;
-  speed = 120;
   scoreEl.textContent = score;
-  levelEl.textContent = level;
-  restartBtn.style.display = "none";
   if (game) clearInterval(game);
-  game = setInterval(draw, speed);
+  game = setInterval(draw, 120);
 }
 
-// === Contrôles clavier (PC) ===
+// Génère une position aléatoire pour la nourriture
+function randomFood() {
+  return {
+    x: Math.floor(Math.random() * (canvas.width / box)) * box,
+    y: Math.floor(Math.random() * (canvas.height / box)) * box
+  };
+}
+
+// === Contrôles clavier ===
 document.addEventListener("keydown", e => {
   if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
   else if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
@@ -94,15 +80,13 @@ document.addEventListener("keydown", e => {
   else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
 });
 
-// === Contrôles tactiles (Mobile) ===
+// === Contrôles tactiles ===
 let touchStartX = 0, touchStartY = 0;
-
 canvas.addEventListener("touchstart", e => {
   const touch = e.touches[0];
   touchStartX = touch.clientX;
   touchStartY = touch.clientY;
 });
-
 canvas.addEventListener("touchend", e => {
   const touch = e.changedTouches[0];
   let dx = touch.clientX - touchStartX;
@@ -117,20 +101,25 @@ canvas.addEventListener("touchend", e => {
   }
 });
 
+// Dessiner le jeu
 function draw() {
   ctx.fillStyle = "#0f1724";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Nourriture
-  ctx.fillStyle = "red";
-  ctx.fillRect(food.x, food.y, box, box);
+  // Dessiner la nourriture (papillon)
+  ctx.drawImage(butterflyImg, food.x, food.y, box, box);
 
-  // Serpent
+  // Dessiner le serpent
   for (let i = 0; i < snake.length; i++) {
-    ctx.fillStyle = i === 0 ? "#2f6fbf" : "#5aa0ff";
-    ctx.fillRect(snake[i].x, snake[i].y, box, box);
+    let part = snake[i];
+    if (i === 0) {
+      ctx.drawImage(headImg, part.x, part.y, box, box);
+    } else {
+      ctx.drawImage(bodyImg, part.x, part.y, box, box);
+    }
   }
 
+  // Calcul nouvelle position de la tête
   let snakeX = snake[0].x;
   let snakeY = snake[0].y;
 
@@ -139,70 +128,40 @@ function draw() {
   if (direction === "RIGHT") snakeX += box;
   if (direction === "DOWN") snakeY += box;
 
+  // Bordures (téléportation)
+  if (snakeX < 0) snakeX = canvas.width - box;
+  if (snakeY < 0) snakeY = canvas.height - box;
+  if (snakeX >= canvas.width) snakeX = 0;
+  if (snakeY >= canvas.height) snakeY = 0;
+
+  // Manger le papillon
   if (snakeX === food.x && snakeY === food.y) {
     score++;
     scoreEl.textContent = score;
-
-    // Augmenter niveau tous les 5 points
-    if (score % 5 === 0) {
-      level++;
-      levelEl.textContent = level;
-      speed = Math.max(60, speed - 10);
-      clearInterval(game);
-      game = setInterval(draw, speed);
-    }
-
-    food = {
-      x: Math.floor(Math.random() * 20) * box,
-      y: Math.floor(Math.random() * 20) * box
-    };
+    food = randomFood();
+    eatSound.play();
   } else {
     snake.pop();
   }
 
   const newHead = { x: snakeX, y: snakeY };
 
-  if (
-    snakeX < 0 ||
-    snakeY < 0 ||
-    snakeX >= canvas.width ||
-    snakeY >= canvas.height ||
-    collision(newHead, snake)
-  ) {
+  // Collision avec soi-même
+  if (collision(newHead, snake)) {
     clearInterval(game);
-    saveScore(score);
-    restartBtn.style.display = "inline-block";
     alert("💀 Game Over! Score final : " + score);
+    initGame();
+    return;
   }
 
   snake.unshift(newHead);
+  moveSound.play();
 }
 
 function collision(head, array) {
   return array.some(part => head.x === part.x && head.y === part.y);
 }
 
-function saveScore(score) {
-  highScores.push(score);
-  highScores.sort((a, b) => b - a);
-  highScores = highScores.slice(0, 5);
-  localStorage.setItem("snakeScores", JSON.stringify(highScores));
-  renderScores();
-}
-
-function renderScores() {
-  highScoresEl.innerHTML = "";
-  highScores.forEach(s => {
-    const li = document.createElement("li");
-    li.textContent = s;
-    highScoresEl.appendChild(li);
-  });
-}
-
-restartBtn.addEventListener("click", initGame);
-
-// Initialisation
-renderScores();
 initGame();
 </script>
 </body>
