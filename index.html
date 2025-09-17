@@ -33,6 +33,7 @@
   footer{margin-top:18px;color:var(--muted);font-size:13px}
   @media(max-width:900px){.app{grid-template-columns:1fr} .grid{grid-template-columns:1fr} .sidebar{display:flex;overflow:auto}}
 </style>
+<style>body{font-family:Inter,Arial;margin:0;background:#071022;color:#e6eef8;padding:18px}h1{font-size:18px}pre{background:#081426;padding:12px;border-radius:8px;overflow:auto}code{font-family:monospace}</style>
 </head>
 <body>
 <div class="app">
@@ -282,5 +283,93 @@ showView('dashboard');
 // expose to window for debugging
 window.__siadmin = {state, saveState, loadState};
 </script>
+<h1>SI Admin — Paquet : Frontend (prototype) + API simulée + Fullstack starter</h1>
+"jsonwebtoken":"^9.0.0",
+"bcrypt":"^5.1.0",
+"cors":"^2.8.5",
+"zod":"^3.20.2"
+}
+}
+
+
+// src/server.js
+const express = require('express');
+const { PrismaClient } = require('@prisma/client');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const cors = require('cors');
+const prisma = new PrismaClient();
+const app = express();
+app.use(cors()); app.use(express.json());
+
+
+// auth middleware
+function auth(req,res,next){ const header = req.headers.authorization; if(!header) return res.sendStatus(401); const token = header.split(' ')[1]; try{ req.user = jwt.verify(token, process.env.JWT_SECRET); next(); }catch(e){ return res.sendStatus(401);} }
+
+
+// example CRUD route
+app.get('/api/inventory', auth, async (req,res)=>{ const items = await prisma.asset.findMany(); res.json(items); });
+app.post('/api/inventory', auth, async (req,res)=>{ const it = await prisma.asset.create({data:req.body}); res.json(it); });
+
+
+app.post('/api/auth/login', async (req,res)=>{ const {email,password} = req.body; const u = await prisma.user.findUnique({where:{email}}); if(!u) return res.status(401).send('bad'); const ok = await bcrypt.compare(password,u.hash); if(!ok) return res.status(401).send('bad'); const token = jwt.sign({id:u.id,email:u.email,role:u.role}, process.env.JWT_SECRET, {expiresIn:'8h'}); res.json({token}); });
+
+
+app.listen(process.env.PORT||4000, ()=>console.log('server running'));
+</code></pre>
+
+
+<h3>/prisma/schema.prisma</h3>
+<pre><code>generator client { provider = "prisma-client-js" }
+datasource db { provider = "postgresql" url = env("DATABASE_URL") }
+
+
+model User { id String @id @default(cuid()) email String @unique hash String name String? role String }
+model Asset { id String @id @default(cuid()) name String type String ip String? os String? owner String? location String? status String }
+</code></pre>
+
+
+<h3>/client (React) — points clés</h3>
+<pre><code>// src/api.js (service layer)
+const API_BASE = process.env.REACT_APP_API || '/api';
+export async function fetchInventory(){ const res = await fetch(API_BASE + '/inventory',{headers:{'Authorization':'Bearer '+localStorage.getItem('token')}}); return res.json(); }
+// ... auth login -> save token in localStorage
+</code></pre>
+
+
+<h2>Déploiement local (Docker)</h2>
+<p>Fichiers:</p>
+<pre><code>// docker-compose.yml
+version: '3.8'
+services:
+db:
+image: postgres:15
+environment:
+POSTGRES_DB: siadmin
+POSTGRES_USER: siadmin
+POSTGRES_PASSWORD: siadminpw
+ports: ["5432:5432"]
+volumes: ["db-data:/var/lib/postgresql/data"]
+api:
+build: ./server
+environment:
+DATABASE_URL: postgres://siadmin:siadminpw@db:5432/siadmin
+JWT_SECRET: 'change_me'
+ports: ["4000:4000"]
+depends_on: [db]
+volumes:
+db-data:
+</code></pre>
+
+
+<h2>Prochaine étape</h2>
+<p>Je peux :</p>
+<ul>
+<li>Générer les fichiers complets (tout le code du Service Worker, du frontend adapté, du serveur Express complet et du client React) et les déposer ici en tant que fichiers séparés — tu pourras les télécharger.</li>
+<li>Ou bien commencer par implémenter le <strong>backend Express + Prisma</strong> complet et déployable via Docker-compose (je te fournis les fichiers <code>src/</code>, <code>package.json</code>, <code>prisma/</code>, et instructions).</li>
+</ul>
+
+
+<p>Quelle option préfères-tu ? (Je peux générer tout maintenant — backend + frontend + SW — ou commencer par l'un des deux.)</p>
 </body>
 </html>
