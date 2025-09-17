@@ -3,657 +3,558 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Stick Combat — Ultime</title>
+<title>Stick Combat — Online (client)</title>
 <style>
-:root{
-  --bg1:#071428; --panel:#0b1224; --accent:#2ea6ff; --muted:#9aa7bf;
-  --btn-face:#f8fbff; --btn-shadow:#0b6b94;
-}
+:root{--panel:#0b1224;--accent:#2ea6ff;--muted:#9aa7bf;--btn-face:#f8fbff;--btn-shadow:#0b6b94}
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;background:linear-gradient(180deg,#061025,#071228);color:#e6eef8;font-family:Inter,system-ui,Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1200px;margin:12px auto;padding:12px}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-h1{font-size:18px;margin:0}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,#071029,#07192b);color:#e6eef8;font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
+.container{max-width:1100px;margin:12px auto;padding:12px}
+.header{display:flex;justify-content:space-between;align-items:center}
 .small{font-size:13px;color:var(--muted)}
-#game-area{position:relative;border-radius:12px;overflow:hidden;margin-top:12px;background:linear-gradient(180deg,#87ceeb,#bfefff)}
+#game-area{position:relative;margin-top:12px;border-radius:12px;overflow:hidden;background:linear-gradient(180deg,#87ceeb,#bfefff)}
 canvas{display:block;width:100%;height:60vh}
-.bottom{display:flex;flex-direction:column;gap:10px;padding:12px;background:var(--panel);border-radius:10px;margin-top:12px;box-shadow:0 10px 30px rgba(0,0,0,0.6)}
-.huds{display:flex;gap:12px;align-items:center}
-.life-wrap{flex:1}
+.bottom{background:var(--panel);padding:12px;border-radius:10px;margin-top:12px}
+.hud{display:flex;gap:8px;align-items:center}
+.life{flex:1}
 .life-bar{height:14px;background:rgba(255,255,255,0.05);border-radius:8px;overflow:hidden}
-.life-fill{height:100%;background:linear-gradient(90deg,#ff6b6b,#e22);width:100%;transition:width 160ms linear}
-.controls{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:6px}
-.ctrl-btn{
-  width:78px;height:78px;border-radius:14px;border:none;
-  background:linear-gradient(180deg,var(--btn-face),#dfefff);
-  box-shadow:0 10px 0 var(--btn-shadow), 0 12px 22px rgba(0,0,0,0.35);
-  font-weight:800;font-size:18px;color:#06242b;touch-action:none;display:flex;align-items:center;justify-content:center;
-  transform-style:preserve-3d;cursor:pointer;
-}
-.ctrl-btn:active{transform:translateY(8px);box-shadow:0 2px 0 var(--btn-shadow)}
-.controls-row{display:flex;gap:10px;align-items:center;justify-content:center}
-.panel-right{display:flex;gap:8px;align-items:center}
+.life-fill{height:100%;background:linear-gradient(90deg,#ff6b6b,#e22);width:100%;transition:width 120ms}
+.controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:10px}
+.btn3d{width:72px;height:72px;border-radius:12px;border:none;background:linear-gradient(180deg,var(--btn-face),#dfefff);
+  box-shadow:0 10px 0 var(--btn-shadow),0 12px 18px rgba(0,0,0,0.45); font-weight:800;color:#06242b;display:flex;align-items:center;justify-content:center;touch-action:none}
+.btn3d:active{transform:translateY(6px);box-shadow:0 2px 0 var(--btn-shadow)}
+.row{display:flex;gap:8px;align-items:center}
 .menu select,input{padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
-.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:6px;border-radius:8px;cursor:pointer}
-#msg{min-height:20px}
-footer{text-align:center;color:var(--muted);font-size:12px;margin-top:10px}
-@media(max-width:720px){ canvas{height:54vh} .ctrl-btn{width:68px;height:68px} }
+.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px;border-radius:6px;color:var(--muted)}
+.copy{cursor:pointer;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:transparent}
+#status{min-height:20px;font-size:13px;color:var(--muted)}
+.footer{margin-top:12px;text-align:center;font-size:12px;color:var(--muted)}
+@media(max-width:720px){canvas{height:56vh}.btn3d{width:64px;height:64px}}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
+<div class="container">
+  <div class="header">
     <div>
-      <h1>Stick Combat — Ultime</h1>
-      <div class="small">PV initiales : 15 — Contrôles: A/D / W/Space / J / K / L — Mobile tactile inclus</div>
+      <h1 style="margin:0">Stick Combat — Online</h1>
+      <div class="small">PV initiales : 15 — IA fallback si pas d'adversaire — Share room code pour jouer en P2P</div>
     </div>
-    <div class="panel-right">
-      <div class="menu small">
-        Décor:
-        <select id="env-select">
-          <option value="forest">Forêt</option>
-          <option value="city">Ville</option>
-          <option value="jungle">Jungle</option>
-          <option value="desert">Désert</option>
-        </select>
-      </div>
-      <button id="btn-ai" class="ghost small">Jouer vs IA</button>
-      <button id="btn-online" class="ghost small">Jouer en ligne</button>
-      <button id="reset" class="ghost small">Réinitialiser</button>
+    <div class="row">
+      <label class="small">Décor:</label>
+      <select id="env">
+        <option value="forest">Forêt</option>
+        <option value="city">Ville</option>
+        <option value="jungle">Jungle</option>
+        <option value="desert">Désert</option>
+      </select>
+      <button id="btn-ai" class="ghost">Jouer vs IA</button>
+      <button id="btn-online" class="ghost">Créer / Rejoindre</button>
     </div>
-  </header>
+  </div>
 
   <div id="game-area">
     <canvas id="canvas"></canvas>
-    <div id="room-display" style="position:absolute;left:12px;top:12px;color:#fff;font-weight:700"></div>
-    <div id="net-status" style="position:absolute;right:12px;top:12px;color:#fff"></div>
+    <div style="position:absolute;left:10px;top:10px;color:#fff;font-weight:700" id="roomLabel"></div>
+    <div style="position:absolute;right:10px;top:10px;color:#fff" id="netLabel"></div>
   </div>
 
   <div class="bottom">
-    <div class="huds">
-      <div class="life-wrap">
+    <div class="hud">
+      <div class="life">
         <div class="small">Joueur — PV: <span id="hp1">15</span>/15</div>
         <div class="life-bar"><div id="bar1" class="life-fill"></div></div>
       </div>
-      <div style="width:120px;text-align:center">
-        <div class="small">Round</div>
-        <div id="round" style="font-weight:800">1</div>
+      <div style="width:130px;text-align:center">
+        <div class="small">Round</div><div id="rnd" style="font-weight:700">1</div>
       </div>
-      <div class="life-wrap">
+      <div class="life">
         <div style="text-align:right" class="small">Adversaire — PV: <span id="hp2">15</span>/15</div>
         <div class="life-bar"><div id="bar2" class="life-fill" style="margin-left:auto"></div></div>
       </div>
     </div>
 
-    <div class="controls">
-      <div class="controls-row">
-        <button id="left-btn" class="ctrl-btn">◀</button>
-        <button id="right-btn" class="ctrl-btn">▶</button>
-        <button id="jump-btn" class="ctrl-btn">⭡</button>
-      </div>
-      <div class="controls-row">
-        <button id="punch-btn" class="ctrl-btn">PO</button>
-        <button id="kick-btn" class="ctrl-btn">KI</button>
-        <button id="block-btn" class="ctrl-btn">BL</button>
-      </div>
+    <div class="controls" id="controls">
+      <button id="leftBtn" class="btn3d">◀</button>
+      <button id="rightBtn" class="btn3d">▶</button>
+      <button id="jumpBtn" class="btn3d">⭡</button>
+      <button id="punchBtn" class="btn3d">PO</button>
+      <button id="kickBtn" class="btn3d">KI</button>
+      <button id="blockBtn" class="btn3d">BL</button>
     </div>
 
-    <div style="display:flex;align-items:center;gap:12px">
-      <div id="msg" class="small">Mode: solo (IA) — Sélectionnez Décor et Jouer</div>
-      <div style="margin-left:auto" class="small">Fait pour GitHub Pages — Remplacez SIGNALING_SERVER_URL dans le code pour activer P2P</div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px">
+      <div id="status">Statut: prêt (mode local)</div>
+      <div style="margin-left:auto" class="small">Partagez l'URL ?room=CODE pour inviter</div>
     </div>
   </div>
 
-  <footer>Licence: Usage personnel / demo — libre de modification</footer>
+  <div style="margin-top:10px">
+    <button id="copyRoom" class="copy">Copier lien de salle</button>
+    <input id="roomInput" placeholder="Entrer code de salle pour rejoindre" style="margin-left:8px;padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit">
+    <button id="joinRoom" class="ghost" style="margin-left:6px">Rejoindre</button>
+  </div>
+
+  <div class="footer">Remplacez SIGNALING_SERVER_URL en haut du script si vous hébergez un signaling server (ex: sur Railway / Render / Heroku).</div>
 </div>
 
 <script>
-/*
-  Stick Combat — Ultime
-  - Single-file HTML
-  - Mode IA par défaut + WebRTC DataChannel (placeholder signaling)
-  - PV initiaux 15
-  - Sons via WebAudio + SpeechSynthesis phrases demandées
-  - Fatale: punch then kick combo causes instant kill + phrase
-  - Environnements dessinés en canvas; player-visible 3D tactile buttons
-  - Replace SIGNALING_SERVER_URL to enable signaling
-*/
-const SIGNALING_SERVER_URL = 'wss://EXEMPLE_SIGNALING_SERVER'; // <-- remplacer si vous avez un signaling server
+/* Configuration */
+const SIGNALING_SERVER_URL = 'wss://EXEMPLE_SIGNALING_SERVER'; // <-- remplacez par votre serveur WebSocket signaling
 const INITIAL_HP = 15;
-
-/* Canvas setup */
 const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d', { alpha:false });
+const ctx = canvas.getContext('2d');
 let W = canvas.width = Math.min(1200, innerWidth - 40);
 let H = canvas.height = Math.round(innerHeight * 0.58);
 window.addEventListener('resize', ()=>{ W = canvas.width = Math.min(1200, innerWidth - 40); H = canvas.height = Math.round(innerHeight * 0.58); });
 
-/* Game objects */
-class Fighter{
+/* Game state & classes */
+class Fighter {
   constructor(x,color,name='F'){
-    this.x = x; this.y = H - 40; this.vx = 0; this.vy = 0;
-    this.color = color; this.hp = INITIAL_HP; this.facing = (x < W/2 ? 1 : -1);
-    this.state = 'idle'; this.onGround = true; this.block = false; this.cool = 0;
-    this.combo = []; // {type, t}
+    this.x=x; this.y=H-40; this.vx=0; this.vy=0;
+    this.color=color; this.hp=INITIAL_HP; this.facing=(x<W/2?1:-1);
+    this.onGround=true; this.state='idle'; this.block=false; this.cool=0; this.combo=[];
     this.name = name;
   }
-  bbox(){ return {x:this.x-16, y:this.y-80, w:32, h:80}; }
+  bbox(){ return {x:this.x-18,y:this.y-80,w:36,h:80}; }
 }
 
-/* Entities */
-let me = new Fighter(160, '#081018', 'Me');
-let enemy = new Fighter(W - 160, '#0b3d9a', 'Enemy');
-let particles = []; // blood particles
+let me = new Fighter(160,'#111','Me');
+let other = new Fighter(W-160,'#0a4ef0','Enemy');
+let particles = [];
 let round = 1;
-let mode = 'idle'; // 'ai' or 'online' or 'idle'
-let dc = null, pc = null, ws = null, roomId = null, role = null;
-const msgEl = document.getElementById('msg');
+let mode = 'local'; // 'local','ai','online'
+let pc = null, dc = null, ws = null, roomId=null, role=null;
+const statusEl = document.getElementById('status');
 
-/* Audio: WebAudio hit & voice */
-const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-function playHit(){
-  const o = AudioCtx.createOscillator();
-  const g = AudioCtx.createGain();
-  o.type = 'triangle';
-  o.frequency.value = 220 + Math.random()*120;
-  g.gain.value = 0.14;
-  o.connect(g); g.connect(AudioCtx.destination);
-  o.start(); g.gain.exponentialRampToValueAtTime(0.0001, AudioCtx.currentTime + 0.18);
-  o.stop(AudioCtx.currentTime + 0.2);
+/* Audio: WebAudio for hits & steps; SpeechSynthesis for voice phrases */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function synthHit(){
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type='square'; o.frequency.value = 280 + Math.random()*120;
+  g.gain.value = 0.12;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.16);
+  o.stop(audioCtx.currentTime + 0.18);
 }
-function playStep(){
-  const o = AudioCtx.createOscillator();
-  const g = AudioCtx.createGain();
-  o.type = 'sine';
-  o.frequency.value = 120;
-  g.gain.value = 0.04;
-  o.connect(g); g.connect(AudioCtx.destination);
-  o.start(); g.gain.exponentialRampToValueAtTime(0.0001, AudioCtx.currentTime + 0.06);
-  o.stop(AudioCtx.currentTime + 0.07);
-}
-function speakLine(text, opts={rate:1}){
-  try{
-    const s = new SpeechSynthesisUtterance(text);
-    s.rate = opts.rate || 1;
-    s.lang = 'fr-FR';
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(s);
-  }catch(e){}
+function synthStep(){ const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.value=120; g.gain.value=0.05; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+0.05); o.stop(audioCtx.currentTime+0.06); }
+
+let lastSpeak = 0;
+function speakLine(text, rate=1){
+  const t = Date.now(); if(t - lastSpeak < 250) return; lastSpeak = t;
+  try{ const u = new SpeechSynthesisUtterance(text); u.lang='fr-FR'; u.rate = rate; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }catch(e){}
 }
 
-/* Utility */
-function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-function now(){ return Date.now(); }
-
-/* Particles (blood) */
-function spawnBlood(x,y,count=10){
+/* Particles */
+function spawnBlood(x,y,count=8){
   for(let i=0;i<count;i++){
-    particles.push({
-      x: x + (Math.random()-0.5)*14,
-      y: y + (Math.random()-0.5)*10,
-      vx: (Math.random()-0.5)*6,
-      vy: -Math.random()*5,
-      life: 40 + Math.random()*30
-    });
+    particles.push({x:x+(Math.random()-0.5)*18,y:y+(Math.random()-0.5)*12,vx:(Math.random()-0.5)*6,vy:-Math.random()*6,life:30+Math.random()*30});
   }
 }
 
-/* Environment draw */
-const envSelect = document.getElementById('env-select');
-function drawEnvironment(name){
-  // subtle sky already; draw midground and foreground
-  if(name === 'forest'){
-    // mountains + trees
-    ctx.fillStyle = '#bfe8c9';
-    for(let i=0;i<6;i++){
-      ctx.beginPath();
-      const cx = (i/6)*W + (i%2?30:-30);
-      ctx.moveTo(cx, H-80);
-      ctx.lineTo(cx-60, H-20);
-      ctx.lineTo(cx+60, H-20);
-      ctx.closePath();
-      ctx.fillStyle = `rgba(10,80,30,${0.9 - i*0.08})`;
-      ctx.fill();
-    }
-    ctx.fillStyle = '#1f6b2a'; ctx.fillRect(0,H-40,W,40);
-  } else if(name === 'city'){
-    // buildings silhouette
-    ctx.fillStyle = '#2b2b2b';
-    for(let i=0;i<14;i++){
-      const bw = 30 + Math.random()*60;
-      const bx = i*(W/14);
-      const bh = 80 + Math.random()*180;
-      ctx.fillRect(bx, H-40-bh, bw, bh);
-    }
-    ctx.fillStyle = '#312f2f'; ctx.fillRect(0,H-40,W,40);
-  } else if(name === 'jungle'){
-    ctx.fillStyle = '#0e3a1f';
-    for(let i=0;i<16;i++){
-      const tx = i*(W/16) + (Math.random()*30 - 15);
-      ctx.beginPath();
-      ctx.ellipse(tx, H-70 - (Math.random()*40), 18, 60, 0, 0, Math.PI*2);
-      ctx.fill();
-    }
-    ctx.fillStyle = '#184d2b'; ctx.fillRect(0,H-40,W,40);
-  } else if(name === 'desert'){
-    // dunes
-    ctx.fillStyle = '#f0d39a';
-    for(let i=0;i<5;i++){
-      ctx.beginPath();
-      ctx.ellipse(i*(W/5)+60, H-60, 180, 56, 0, Math.PI, 2*Math.PI);
-      ctx.fill();
-    }
-    ctx.fillStyle = '#e0c58a';
-    ctx.fillRect(0,H-40,W,40);
-  } else {
-    ctx.fillStyle = '#18573a'; ctx.fillRect(0,H-40,W,40);
+/* Environment drawing */
+const envSel = document.getElementById('env');
+function drawEnv(name){
+  if(name==='forest'){
+    for(let i=0;i<10;i++){ ctx.fillStyle=`rgba(7,60,20,${0.9-i*0.06})`; ctx.beginPath(); const tx = (i/10)*W + (i%2?20:-20); ctx.moveTo(tx,H-120); ctx.lineTo(tx-36,H-40); ctx.lineTo(tx+36,H-40); ctx.closePath(); ctx.fill(); }
+    ctx.fillStyle='#146a2f'; ctx.fillRect(0,H-40,W,40);
+  } else if(name==='city'){
+    ctx.fillStyle='#2b2b2b'; for(let i=0;i<12;i++){ const bw=30+Math.random()*80; const bx=i*(W/12); const bh=80 + Math.random()*160; ctx.fillRect(bx,H-40-bh,bw,bh); } ctx.fillStyle='#2f2f2f'; ctx.fillRect(0,H-40,W,40);
+  } else if(name==='jungle'){
+    for(let i=0;i<16;i++){ ctx.fillStyle=`rgba(12,50,18,${0.8-Math.random()*0.3})`; ctx.beginPath(); const tx = i*(W/16) + Math.random()*30-15; ctx.ellipse(tx,H-120,20,60,0,0,Math.PI*2); ctx.fill(); } ctx.fillStyle='#183'; ctx.fillRect(0,H-40,W,40);
+  } else if(name==='desert'){
+    ctx.fillStyle='#e7c78a'; for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(i*(W/4)+50,H-60,180,56,0,Math.PI,2*Math.PI); ctx.fill(); } ctx.fillStyle='#cfb97a'; ctx.fillRect(0,H-40,W,40);
   }
 }
 
-/* Draw stick figure with simple animation */
+/* Stick draw */
 function drawStick(p){
-  ctx.save();
-  ctx.translate(p.x, p.y);
-  ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.lineCap='round';
-  ctx.strokeStyle = p.color;
-  // head
-  ctx.beginPath(); ctx.arc(0, -64, 10, 0, Math.PI*2); ctx.stroke();
-  // torso
+  ctx.save(); ctx.translate(p.x,p.y); ctx.strokeStyle=p.color; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(0,-64,10,0,Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(0,-54); ctx.lineTo(0,-18); ctx.stroke();
-  // arms
-  if(p.state === 'punch'){
-    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(28 * p.facing, -32); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18 * p.facing, -28); ctx.stroke();
-  } else if(p.state === 'kick'){
-    ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(32 * p.facing, 6); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18, -32); ctx.stroke();
-  } else if(p.state === 'fatal'){
-    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(42 * p.facing, -8); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(10, 36); ctx.stroke();
-  } else {
-    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18, -30); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(18, -30); ctx.stroke();
-  }
-  // legs
-  ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(-12, 36); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(12 + (p.state === 'kick' ? 20*p.facing : 0), 36 + (p.state==='kick'?-8:0)); ctx.stroke();
+  if(p.state==='punch'){ ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(28*p.facing,-32); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18 * p.facing, -28); ctx.stroke(); }
+  else if(p.state==='kick'){ ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(32*p.facing,6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18,-32); ctx.stroke(); }
+  else if(p.state==='fatal'){ ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(42*p.facing,-8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(12,36); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18,-30); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(18,-30); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(-12,36); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(12 + (p.state==='kick'?20*p.facing:0),36 + (p.state==='kick'?-8:0)); ctx.stroke();
   ctx.restore();
 }
 
-/* Simple hit test */
-function hitTest(att, def, type){
-  const reach = (type === 'punch' ? 72 : 100);
-  const ax = att.x + (att.facing > 0 ? reach : -reach);
+/* Collision test */
+function inReach(att, def, type){
+  const reach = (type==='punch'?72:100);
+  const ax = att.x + (att.facing>0?reach:-reach);
   const ay = att.y - 40;
-  const dx = Math.abs(ax - def.x);
-  const dy = Math.abs(ay - (def.y - 40));
-  return (dx < 48 && dy < 60);
+  return Math.abs(ax - def.x) < 48 && Math.abs(ay - (def.y - 40)) < 60;
 }
 
-/* Apply damage & knockback */
+/* Apply hit and audio/particles */
 function applyHit(att, def, type){
-  if(def.block){ // reduced
-    const dmg = (type==='punch'?0.5:1);
-    def.hp = Math.max(0, def.hp - dmg);
-    playHit(); spawnBlood(def.x, def.y-40, 6);
+  if(def.block){
+    def.hp = Math.max(0, def.hp - (type==='punch'?0.5:1));
+    synthHit(); spawnBlood(def.x, def.y-40, 6);
   } else {
     const dmg = (type==='punch'? (1 + Math.round(Math.random())) : (3 + Math.round(Math.random())));
     def.hp = Math.max(0, def.hp - dmg);
-    playHit(); spawnBlood(def.x, def.y-40, 12);
-    // knockback
-    def.vx += 3 * (att.facing) * (type==='punch'?0.6:1.2);
+    synthHit(); spawnBlood(def.x, def.y-40, 12);
+    def.vx += 3 * att.facing * (type==='punch'?0.6:1.2);
     def.vy -= 5 * (type==='punch'?0.5:1.1);
-    // voice "ouille"
-    speakLine("ouille", {rate:1.1});
+    speakLine('ouille', 1.05);
   }
-  // clamp
-  def.hp = clamp(def.hp, 0, INITIAL_HP);
+  def.hp = Math.max(0, def.hp);
 }
 
-/* Combo detection and fatal */
-function registerAttack(actor, type){
-  const t = now();
-  actor.combo.push({type, t});
-  actor.combo = actor.combo.filter(c => t - c.t < 1200);
-  // check punch then kick
+/* Combo detection (punch then kick quickly = fatal) */
+function addCombo(actor, type){
+  const t = Date.now(); actor.combo.push({type,t}); actor.combo = actor.combo.filter(x => t - x.t < 1200);
   if(actor.combo.length >= 2){
     const s = actor.combo.slice(-2);
     if(s[0].type === 'punch' && s[1].type === 'kick'){
-      // fatal attempt
-      if(Math.abs(actor.x - (actor === me ? enemy.x : me.x)) < 120){
-        // perform fatal
-        actor.state = 'fatal';
-        actor.cool = 160;
-        const target = (actor === me ? enemy : me);
-        target.hp = 0;
-        spawnBlood(target.x, target.y-40, 40);
-        playHit();
-        speakLine("reçois ta dose fripouilles tu l'as bien mérité", {rate:0.95});
-        checkEnd();
+      // fatal
+      if(Math.abs(actor.x - (actor===me?other.x:me.x)) < 120){
+        actor.state = 'fatal'; actor.cool = 160;
+        const target = (actor===me?other:me); target.hp = 0;
+        spawnBlood(target.x, target.y-40, 30); synthHit();
+        speakLine("reçois ta dose fripouilles tu l'as bien mérité", 0.95);
+        endCheck();
       }
       actor.combo = [];
     }
   }
 }
 
-/* Input handling */
+/* Input handling (keyboard & touch) */
 const keys = {};
 window.addEventListener('keydown', e=>{
   if(['a','d','w',' ','j','k','l','ArrowLeft','ArrowRight','ArrowUp'].includes(e.key)) e.preventDefault();
-  if(e.key === 'a' || e.key === 'ArrowLeft') keys.left = true;
-  if(e.key === 'd' || e.key === 'ArrowRight') keys.right = true;
-  if(e.key === 'w' || e.key === ' ' || e.key === 'ArrowUp') keys.jump = true;
-  if(e.key === 'j') keys.punch = true;
-  if(e.key === 'k') keys.kick = true;
-  if(e.key === 'l') keys.block = true;
+  if(e.key==='a'||e.key==='ArrowLeft') keys.left=true;
+  if(e.key==='d'||e.key==='ArrowRight') keys.right=true;
+  if(e.key==='w'||e.key===' '||e.key==='ArrowUp') keys.jump=true;
+  if(e.key==='j') keys.punch=true;
+  if(e.key==='k') keys.kick=true;
+  if(e.key==='l') keys.block=true;
 });
 window.addEventListener('keyup', e=>{
-  if(e.key === 'a' || e.key === 'ArrowLeft') keys.left = false;
-  if(e.key === 'd' || e.key === 'ArrowRight') keys.right = false;
-  if(e.key === 'w' || e.key === ' ' || e.key === 'ArrowUp') keys.jump = false;
-  if(e.key === 'j') keys.punch = false;
-  if(e.key === 'k') keys.kick = false;
-  if(e.key === 'l') keys.block = false;
+  if(e.key==='a'||e.key==='ArrowLeft') keys.left=false;
+  if(e.key==='d'||e.key==='ArrowRight') keys.right=false;
+  if(e.key==='w'||e.key===' '||e.key==='ArrowUp') keys.jump=false;
+  if(e.key==='j') keys.punch=false;
+  if(e.key==='k') keys.kick=false;
+  if(e.key==='l') keys.block=false;
 });
 
-/* Touch buttons binding */
-[['left-btn','left'],['right-btn','right'],['jump-btn','jump'],['punch-btn','punch'],['kick-btn','kick'],['block-btn','block']].forEach(pair=>{
-  const el = document.getElementById(pair[0]); const key = pair[1];
-  el.addEventListener('touchstart', e=>{ e.preventDefault(); keys[key] = true; if(AudioCtx.state === 'suspended') AudioCtx.resume(); });
-  el.addEventListener('touchend', e=>{ e.preventDefault(); keys[key] = false; });
-  el.addEventListener('mousedown', e=>{ keys[key] = true; if(AudioCtx.state === 'suspended') AudioCtx.resume(); });
-  el.addEventListener('mouseup', e=>{ keys[key] = false; });
+/* Touch buttons */
+[['leftBtn','left'],['rightBtn','right'],['jumpBtn','jump'],['punchBtn','punch'],['kickBtn','kick'],['blockBtn','block']].forEach(([id,key])=>{
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', e=>{ e.preventDefault(); keys[key]=true; if(audioCtx.state==='suspended') audioCtx.resume(); });
+  el.addEventListener('touchend', e=>{ e.preventDefault(); keys[key]=false; });
+  el.addEventListener('mousedown', ()=>{ keys[key]=true; if(audioCtx.state==='suspended') audioCtx.resume();});
+  el.addEventListener('mouseup', ()=>{ keys[key]=false; });
 });
 
-/* AI behavior */
-function aiBehavior(){
-  if(mode !== 'ai') return;
-  // simple: approach, attack when close, sometimes dodge
-  const dx = me.x - enemy.x;
-  if(Math.abs(dx) > 110){
-    enemy.vx = dx > 0 ? 1.6 : -1.6;
-    if(Math.random() < 0.01 && enemy.onGround) enemy.vy = -9;
-  } else {
-    enemy.vx = (Math.random() > 0.5 ? -0.6 : 0.6);
-    if(Math.random() < 0.035) { tryAttack(enemy, 'punch'); }
-    if(Math.random() < 0.02) { tryAttack(enemy, 'kick'); }
-  }
-}
-
-/* Attack attempt */
+/* Attempts attack */
 function tryAttack(actor, type){
-  if(actor.cool > 0) return false;
-  if(actor.block) return false;
-  actor.state = (type === 'punch' ? 'punch' : 'kick');
-  actor.cool = (type === 'punch' ? 22 : 42);
-  // check hit
-  const target = (actor === me ? enemy : me);
-  if(hitTest(actor, target, type)){
+  if(actor.cool > 0) return;
+  if(actor.block) return;
+  actor.state = (type==='punch'?'punch':'kick');
+  actor.cool = (type==='punch'?22:42);
+  const target = (actor===me?other:me);
+  if(inReach(actor, target, type)){
     applyHit(actor, target, type);
   }
-  registerAttack(actor, type);
-  // if online, send action
-  if(dc && dc.readyState === 'open') {
-    try{ dc.send(JSON.stringify({type:'action', actor:(actor===me?'me':'enemy'), action:type, x:actor.x, hp: actor === me ? me.hp : enemy.hp})); }catch(e){}
-  }
-  return true;
+  addCombo(actor, type);
+  // network send
+  sendDC({type:'action', action:type, x: actor.x, hp: actor===me?me.hp:other.hp});
 }
 
-/* Physics update */
+/* Physics / AI / particles / HUD update */
 function updatePhysics(p){
-  // apply gravity
   p.vy += 0.6;
-  p.x += p.vx;
-  p.y += p.vy;
-  // ground
-  if(p.y > H - 40){
-    p.y = H - 40; p.vy = 0; p.onGround = true;
-  } else p.onGround = false;
-  // friction
-  p.vx *= 0.86;
-  if(Math.abs(p.vx) < 0.05) p.vx = 0;
-  // bounds
-  p.x = clamp(p.x, 40, W - 40);
-  if(p.x < W/2) p.facing = 1; else p.facing = -1;
+  p.x += p.vx; p.y += p.vy;
+  if(p.y > H - 40){ p.y = H - 40; p.vy = 0; p.onGround = true; } else p.onGround = false;
+  p.vx *= 0.86; if(Math.abs(p.vx) < 0.05) p.vx = 0;
+  p.x = Math.max(40, Math.min(W-40, p.x));
   if(p.cool > 0) p.cool--;
-  // reset state if idle
-  if(p.cool === 0 && p.state !== 'idle' && p.state !== 'fatal') p.state = 'idle';
-  // if fatal animation ended, reset to idle after long
-  if(p.state === 'fatal' && p.cool <= 0) p.state = 'idle';
+  if(p.cool === 0 && p.state !== 'fatal') p.state = 'idle';
+  p.facing = p.x < W/2 ? 1 : -1;
+}
+
+function aiStep(){
+  if(mode !== 'ai') return;
+  const dx = me.x - other.x;
+  if(Math.abs(dx) > 110){ other.vx = dx > 0 ? 1.6 : -1.6; if(Math.random() < 0.01 && other.onGround) other.vy = -9; }
+  else { other.vx = Math.random()>0.5?0.8:-0.8; if(Math.random() < 0.035) tryAttack(other,'punch'); if(Math.random() < 0.02) tryAttack(other,'kick'); }
 }
 
 /* Particles update */
 function updateParticles(){
-  for(let i = particles.length -1; i >=0; i--){
-    const pt = particles[i];
-    pt.x += pt.vx; pt.y += pt.vy; pt.vy += 0.25; pt.life--;
-    if(pt.life <= 0) particles.splice(i,1);
+  for(let i=particles.length-1;i>=0;i--){
+    const p = particles[i]; p.x+=p.vx; p.y+=p.vy; p.vy+=0.25; p.life--;
+    if(p.life <= 0) particles.splice(i,1);
   }
 }
 
-/* End check */
-function checkEnd(){
-  if(me.hp <= 0 || enemy.hp <= 0){
+/* End match check */
+function endCheck(){
+  if(me.hp <= 0 || other.hp <= 0){
     if(me.hp <= 0){
-      speakLine("aaahhhh je peux pas finir ainsi", {rate:0.9});
-      setTimeout(()=> speakLine("hohooo hahaha", {rate:1.0}), 700);
-      msgEl.innerText = "Vous avez perdu !";
+      speakLine("aaahhhh je peux pas finir ainsi", 0.9);
+      setTimeout(()=>speakLine("hohooo hahaha", 1.0), 700);
+      statusEl('Vous avez perdu');
     } else {
-      speakLine("hohooo hahaha", {rate:1.0});
-      setTimeout(()=> speakLine("aaahhhh je peux pas finir ainsi", {rate:0.9}), 300);
-      msgEl.innerText = "Vous avez gagné !";
+      speakLine("hohooo hahaha", 1.0);
+      setTimeout(()=>speakLine("aaahhhh je peux pas finir ainsi", 0.9), 300);
+      statusEl('Vous avez gagné');
     }
-    // send final state if online
-    if(dc && dc.readyState === 'open'){ try{ dc.send(JSON.stringify({type:'end', winner: me.hp>0 ? 'me' : 'enemy'})); }catch(e){} }
-    // schedule reset
-    setTimeout(()=> resetRound(), 3500);
+    // notify peer
+    sendDC({type:'end', winner: me.hp>0 ? 'me' : 'other'});
+    setTimeout(()=>reset(), 3500);
   }
 }
 
-/* Rendering */
+/* Draw loop */
 function render(){
   ctx.clearRect(0,0,W,H);
-  // sky gradient
-  const g = ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'#87ceeb'); g.addColorStop(1,'#bfefff');
-  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
-  // environment
-  drawEnvironment(envSelect.value);
-  // ground shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(0,H-40,W,40);
-  // players - order by y for depth
-  drawStick(enemy); drawStick(me);
+  // sky
+  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#87ceeb'); g.addColorStop(1,'#bfefff'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // env
+  drawEnv(envSel.value);
+  // ground stripe
+  ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(0,H-40,W,40);
+  // draw order: farther first
+  drawStick(other); drawStick(me);
   // particles
-  ctx.fillStyle = 'rgba(200,20,20,0.95)';
-  particles.forEach(p => ctx.fillRect(p.x, p.y, 3, 3));
+  ctx.fillStyle='rgba(220,20,20,0.95)';
+  particles.forEach(p=>ctx.fillRect(p.x,p.y,3,3));
   requestAnimationFrame(render);
 }
 
-/* Main game loop */
+/* main game loop */
 let last = Date.now();
-function mainLoop(){
-  const nowt = Date.now();
-  const dt = nowt - last; last = nowt;
-  // input for me
+function loop(){
+  const now = Date.now(); const dt = now - last; last = now;
+  // inputs to me
   if(keys.left) me.vx = -4;
   if(keys.right) me.vx = 4;
-  if(!keys.left && !keys.right) me.vx *= 0.88;
-  if(keys.jump && me.onGround){ me.vy = -11; me.onGround = false; keys.jump = false; }
+  if(!keys.left && !keys.right) me.vx *= 0.9;
+  if(keys.jump && me.onGround){ me.vy = -11; me.onGround=false; keys.jump=false; }
   me.block = !!keys.block;
-  // attacks
   if(keys.punch){ tryAttack(me,'punch'); keys.punch=false; }
   if(keys.kick){ tryAttack(me,'kick'); keys.kick=false; }
-  // AI step
-  if(mode === 'ai') aiBehavior();
-  // update physics
-  updatePhysics(me); updatePhysics(enemy);
+  aiStep();
+  updatePhysics(me); updatePhysics(other);
   updateParticles();
-  // smooth remote if online? (handled by messages)
-  // update HUD
+  // step sound
+  if(Math.abs(me.vx) > 1 && me.onGround && (now % 240 < 20)) synthStep();
+  // HUD
   document.getElementById('hp1').innerText = Math.round(me.hp);
-  document.getElementById('hp2').innerText = Math.round(enemy.hp);
-  document.getElementById('bar1').style.width = ((me.hp/INITIAL_HP)*100) + '%';
-  document.getElementById('bar2').style.width = ((enemy.hp/INITIAL_HP)*100) + '%';
-  // send periodic state if online
-  if(dc && dc.readyState === 'open' && (nowt % 100) < 20){
-    try{ dc.send(JSON.stringify({type:'state', x: me.x, y: me.y, hp: me.hp, t: nowt })); }catch(e){}
+  document.getElementById('hp2').innerText = Math.round(other.hp);
+  document.getElementById('bar1').style.width = ((me.hp/INITIAL_HP)*100)+'%';
+  document.getElementById('bar2').style.width = ((other.hp/INITIAL_HP)*100)+'%';
+  // send own state to peer
+  if(dc && dc.readyState === 'open' && (now % 80 < 20)){
+    sendDC({type:'state', x: me.x, y: me.y, hp: me.hp, t: now});
   }
-  // check end
-  checkEnd();
-  requestAnimationFrame(mainLoop);
+  requestAnimationFrame(loop);
 }
 
-/* Reset round */
-function resetRound(){
+/* Reset */
+function reset(){
   W = canvas.width = Math.min(1200, innerWidth - 40);
   H = canvas.height = Math.round(innerHeight * 0.58);
-  me = new Fighter(160, '#081018', 'Me');
-  enemy = new Fighter(W - 160, '#0b3d9a', 'Enemy');
+  me = new Fighter(160,'#111','Me');
+  other = new Fighter(W-160,'#0a4ef0','Enemy');
   particles = [];
   round = 1;
-  document.getElementById('round').innerText = round;
-  msgEl.innerText = 'Mode: ' + (mode === 'ai' ? 'IA' : (mode === 'online' ? 'En ligne' : 'Solo'));
+  document.getElementById('rnd').innerText = round;
+  statusEl('Prêt');
+  document.getElementById('roomLabel').innerText = roomId ? 'Salle: ' + roomId : '';
 }
 
-/* UI buttons */
-document.getElementById('btn-ai').addEventListener('click', ()=>{ mode = 'ai'; resetRound(); msgEl.innerText = 'Mode: IA'; document.getElementById('room-display').innerText = ''; });
-document.getElementById('reset').addEventListener('click', ()=>{ mode='idle'; resetRound(); msgEl.innerText = 'Réinitialisé'; });
-document.getElementById('btn-online').addEventListener('click', async ()=>{
-  // prompt host or join
-  if(SIGNALING_SERVER_URL.includes('EXEMPLE')){ alert('Signaling non configuré. Remplacez SIGNALING_SERVER_URL dans le code pour activer P2P.'); return; }
-  const create = confirm('Créer une salle ? OK = Créer, Annuler = Rejoindre');
-  if(create){ role='host'; roomId = makeRoomId(); document.getElementById('room-display').innerText = 'Salle: ' + roomId; setupSignaling(); startHost(); }
-  else { role='guest'; const code = prompt('Entrez le code de la salle (ex: ABC123)'); if(!code) return; roomId = code; document.getElementById('room-display').innerText = 'Salle: ' + roomId; setupSignaling(); startGuest(); }
+/* UI helpers */
+function statusEl(txt){ document.getElementById('status').innerText = 'Statut: ' + txt; }
+document.getElementById('btn-ai').addEventListener('click', ()=>{ mode='ai'; reset(); statusEl('Mode IA'); });
+document.getElementById('leftBtn').addEventListener('click', ()=>{ keys.left=true; setTimeout(()=>keys.left=false,120) });
+document.getElementById('rightBtn').addEventListener('click', ()=>{ keys.right=true; setTimeout(()=>keys.right=false,120) });
+document.getElementById('jumpBtn').addEventListener('click', ()=>{ keys.jump=true; setTimeout(()=>keys.jump=false,120) });
+document.getElementById('punchBtn').addEventListener('click', ()=>{ keys.punch=true; setTimeout(()=>keys.punch=false,120) });
+document.getElementById('kickBtn').addEventListener('click', ()=>{ keys.kick=true; setTimeout(()=>keys.kick=false,160) });
+document.getElementById('blockBtn').addEventListener('click', ()=>{ keys.block=true; setTimeout(()=>keys.block=false,260) });
+
+/* Room creation & WebRTC signaling */
+function makeRoom(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
+document.getElementById('copyRoom').addEventListener('click', ()=>{
+  if(!roomId) { alert('Aucune salle créée'); return; }
+  const url = new URL(location.href); url.searchParams.set('room', roomId);
+  navigator.clipboard.writeText(url.toString()).then(()=> alert('Lien copié'));
+});
+document.getElementById('joinRoom').addEventListener('click', ()=> {
+  const code = document.getElementById('roomInput').value.trim();
+  if(!code) return alert('Entrez un code de salle');
+  joinRoom(code);
 });
 
-/* Simple room ID gen */
-function makeRoomId(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
+document.getElementById('btn-online').addEventListener('click', async ()=>{
+  if(SIGNALING_SERVER_URL.includes('EXEMPLE')){ alert('Signaling non configuré. Pour jouer en ligne, hébergez le signaling server et remplacez SIGNALING_SERVER_URL dans le script. Voir le fichier server-sample.js (fourni).'); return; }
+  const create = confirm('Créer une salle ? OK=Créer, Annuler=Rejoindre');
+  if(create){ roomId = makeRoom(); document.getElementById('roomLabel').innerText = 'Salle: '+roomId; await setupSignaling(); createRoom(roomId); role='host'; mode='online'; statusEl('Salle créée — en attente'); }
+  else {
+    const code = prompt('Code de la salle:');
+    if(!code) return;
+    roomId = code; document.getElementById('roomLabel').innerText = 'Salle: '+roomId; await setupSignaling(); joinRoom(roomId); role='guest'; mode='online'; statusEl('Tentative de connexion...');
+  }
+});
 
-/* Signaling via WebSocket */
-function setupSignaling(){
-  if(ws) return;
+/* Signaling WS */
+async function setupSignaling(){
+  if(ws && ws.readyState === 1) return;
   ws = new WebSocket(SIGNALING_SERVER_URL);
-  ws.onopen = ()=>{ document.getElementById('net-status').innerText = 'Signaling connecté'; };
-  ws.onmessage = async (ev) => {
+  ws.onopen = ()=>{ statusEl('Signaling connecté'); document.getElementById('netLabel').innerText='Signaling: OK'; };
+  ws.onerror = ()=>{ statusEl('Erreur signaling'); };
+  ws.onmessage = async (ev)=> {
     try{
-      const data = JSON.parse(ev.data);
-      if(!data || data.room !== roomId) return;
-      if(data.type === 'offer' && role === 'guest'){
-        await pc.setRemoteDescription({type:'offer', sdp: data.sdp});
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        ws.send(JSON.stringify({type:'answer', sdp: answer.sdp, room: roomId}));
-      } else if(data.type === 'answer' && role === 'host'){
-        await pc.setRemoteDescription({type:'answer', sdp: data.sdp});
-      } else if(data.type === 'candidate' && data.candidate){
-        try{ await pc.addIceCandidate(data.candidate); }catch(e){}
+      const msg = JSON.parse(ev.data);
+      if(!msg || msg.room !== roomId) return;
+      if(msg.type === 'offer' && role === 'guest'){
+        await ensurePC();
+        await pc.setRemoteDescription({type:'offer', sdp: msg.sdp});
+        const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
+        ws.send(JSON.stringify({type:'answer', sdp: ans.sdp, room: roomId}));
+      } else if(msg.type === 'answer' && role === 'host'){
+        await pc.setRemoteDescription({type:'answer', sdp: msg.sdp});
+      } else if(msg.type === 'candidate' && msg.candidate){
+        try{ await pc.addIceCandidate(msg.candidate); }catch(e){}
       }
     }catch(e){}
   };
-  ws.onerror = ()=>{ document.getElementById('net-status').innerText = 'Signaling erreur'; };
 }
 
-/* WebRTC host */
-async function startHost(){
-  pc = new RTCPeerConnection();
+/* Create room (host) */
+async function createRoom(id){
+  await ensurePC();
   dc = pc.createDataChannel('game');
-  dc.onopen = ()=>{ document.getElementById('net-status').innerText = 'DataChannel ouvert'; mode='online'; msgEl.innerText='Mode: En ligne (host)'; resetRound(); };
-  dc.onmessage = ev => { handleDC(ev.data); };
-  pc.onicecandidate = ev => { if(ev.candidate) ws.send(JSON.stringify({type:'candidate', candidate: ev.candidate, room: roomId})); };
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  ws.send(JSON.stringify({type:'offer', sdp: offer.sdp, room: roomId}));
+  dc.onopen = ()=>{ statusEl('DataChannel ouvert — joueur connecté'); document.getElementById('netLabel').innerText='P2P: ouvert'; };
+  dc.onmessage = ev => handleDC(ev.data);
+  pc.onicecandidate = ev => { if(ev.candidate) ws.send(JSON.stringify({type:'candidate', candidate: ev.candidate, room: id})); };
+  const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+  ws.send(JSON.stringify({type:'offer', sdp: offer.sdp, room: id}));
 }
 
-/* WebRTC guest */
-async function startGuest(){
+/* Join (guest): wait for offer via signaling onmessage -> handled above */
+async function joinRoom(id){
+  await ensurePC();
+  pc.ondatachannel = e => { dc = e.channel; dc.onopen = ()=>{ statusEl('Connecté (guest)'); document.getElementById('netLabel').innerText='P2P: ouvert'; }; dc.onmessage = ev => handleDC(ev.data); };
+  pc.onicecandidate = ev => { if(ev.candidate) ws.send(JSON.stringify({type:'candidate', candidate: ev.candidate, room: id})); };
+}
+
+/* Ensure RTCPeerConnection */
+async function ensurePC(){
+  if(pc) return;
   pc = new RTCPeerConnection();
-  pc.ondatachannel = e => { dc = e.channel; dc.onmessage = ev => handleDC(ev.data); dc.onopen = ()=>{ document.getElementById('net-status').innerText = 'DataChannel ouvert'; mode='online'; msgEl.innerText = 'Mode: En ligne (guest)'; resetRound(); }; };
-  pc.onicecandidate = ev => { if(ev.candidate) ws.send(JSON.stringify({type:'candidate', candidate: ev.candidate, room: roomId})); };
+  pc.onconnectionstatechange = ()=>{ if(pc.connectionState === 'connected') statusEl('Peer connected'); };
 }
 
-/* Handle incoming DataChannel messages */
+/* DataChannel handler */
 function handleDC(raw){
   try{
-    const obj = JSON.parse(raw);
-    if(obj.type === 'state'){
-      // remote updates enemy (other peer)
-      // Map remote -> enemy always
-      enemy.x = obj.x; enemy.y = obj.y; enemy.hp = obj.hp;
-    } else if(obj.type === 'action'){
-      if(obj.action === 'punch' || obj.action === 'kick'){
-        // remote attacked: we can apply predicted hit if close to us
-        // simple: if their x near our x, reduce hp locally (host authoritative? for demo we accept)
-        // not doing double-apply because remote will also apply locally
-      } else if(obj.action === 'fatal'){
-        // remote inflicted fatal -> we die
-        if(obj.target === 'me'){ me.hp = 0; checkEnd(); }
+    const o = JSON.parse(raw);
+    if(o.type === 'state'){
+      other.x = o.x; other.y = o.y; other.hp = o.hp;
+    } else if(o.type === 'action'){
+      if(o.action === 'punch' || o.action === 'kick'){
+        // optionally play remote action animations; for demo we apply local simulation when hit occurs
+      } else if(o.type === 'end'){
+        statusEl('Match terminé: ' + o.winner);
       }
-    } else if(obj.type === 'end'){
-      msgEl.innerText = 'Match terminé (remote): ' + obj.winner;
+    } else if(o.type === 'end'){
+      statusEl('Match terminé: ' + o.winner);
     }
   }catch(e){}
 }
 
-/* Send local action over DC */
-function sendAction(act){
+/* Send on DataChannel safe */
+function sendDC(obj){
   if(!dc || dc.readyState !== 'open') return;
-  try{ dc.send(JSON.stringify(act)); }catch(e){}
+  try{ dc.send(JSON.stringify(obj)); }catch(e){}
 }
 
-/* Utility: clamp */
-function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+/* Periodic: send local state if connected */
+setInterval(()=>{ if(dc && dc.readyState==='open'){ sendDC({type:'state', x: me.x, y: me.y, hp: me.hp, t: Date.now()}); } }, 100);
 
-/* start loops */
-resetRound();
-render();
-mainLoop();
+/* Join via URL param if present */
+(function autoJoinFromURL(){
+  const url = new URL(location.href); const code = url.searchParams.get('room');
+  if(code){
+    document.getElementById('roomInput').value = code;
+    // auto attempt join
+    document.getElementById('joinRoom').click();
+  }
+})();
 
-/* Kick helpers: attempt attack when keys or touch triggered */
-setInterval(()=>{ // process repeated actions like step sound
-  if(Math.abs(me.vx) > 0.5 && me.onGround) playStep();
-}, 240);
+/* UI join button pairing */
+document.getElementById('joinRoom').addEventListener('click', async ()=>{
+  const code = document.getElementById('roomInput').value.trim();
+  if(!code) return alert('Entrez code salle');
+  roomId = code;
+  document.getElementById('roomLabel').innerText = 'Salle: ' + roomId;
+  if(SIGNALING_SERVER_URL.includes('EXEMPLE')){ alert('Signaling non configuré. Voir server sample.'); return; }
+  await setupSignaling();
+  await joinRoom(roomId);
+  mode = 'online'; role='guest';
+});
 
-function playHit(){ if(AudioCtx.state === 'suspended') AudioCtx.resume(); playHit(); } // placeholder to ensure audio context resumed in some browsers
+/* Copy link */
+document.getElementById('copyRoom').addEventListener('click', ()=>{
+  if(!roomId) return alert('Aucune salle');
+  const url = new URL(location.href); url.searchParams.set('room', roomId);
+  navigator.clipboard.writeText(url.toString()).then(()=> alert('Lien copié dans le presse-papier'));
+});
 
-/* Ensure audio context resume when user interacts */
-document.addEventListener('pointerdown', ()=>{ if(AudioCtx.state === 'suspended') AudioCtx.resume(); });
+/* Start loops */
+resetGame();
+render(); loop();
 
-/* Provide improved playHit wrapper (avoid recursion) */
-function playHit(){
-  try{
-    const o = AudioCtx.createOscillator();
-    const g = AudioCtx.createGain();
-    o.type = 'sawtooth'; o.frequency.value = 220 + Math.random()*120;
-    g.gain.value = 0.12;
-    o.connect(g); g.connect(AudioCtx.destination);
-    o.start();
-    g.gain.exponentialRampToValueAtTime(0.0001, AudioCtx.currentTime + 0.18);
-    o.stop(AudioCtx.currentTime + 0.2);
-  }catch(e){}
+/* Helper functions */
+function resetGame(){
+  W = canvas.width = Math.min(1200, innerWidth - 40);
+  H = canvas.height = Math.round(innerHeight * 0.58);
+  me = new Fighter(160, '#111', 'Me'); other = new Fighter(W-160, '#0a4ef0', 'Enemy'); particles = []; round = 1; document.getElementById('rnd').innerText = round;
+  statusEl('Prêt (mode local)');
+  document.getElementById('roomLabel').innerText = roomId ? 'Salle: ' + roomId : '';
 }
 
-/* Prevent double-speech stacking: small throttle */
-let lastSpeak = 0;
-function speakLine(text, opts={rate:1}){
-  const t = Date.now();
-  if(t - lastSpeak < 350) return;
-  lastSpeak = t;
-  try{
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'fr-FR'; u.rate = opts.rate || 1;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  }catch(e){}
+/* Render & loop functions defined earlier */
+function render(){
+  ctx.clearRect(0,0,W,H);
+  // sky
+  const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#87ceeb'); g.addColorStop(1,'#bfefff'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  drawEnv(envSel.value);
+  ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(0,H-40,W,40);
+  drawStick(other); drawStick(me);
+  ctx.fillStyle='rgba(220,20,20,0.95)'; particles.forEach(p=>ctx.fillRect(p.x,p.y,3,3));
+  requestAnimationFrame(render);
 }
 
-/* Clean, predictable AI tick (use setInterval) */
-setInterval(()=>{ if(mode === 'ai') aiBehavior(); }, 180);
+function loop(){
+  const now = Date.now();
+  // input-mechanics
+  if(keys.left) me.vx = -4; if(keys.right) me.vx = 4; if(!keys.left && !keys.right) me.vx *= 0.9;
+  if(keys.jump && me.onGround){ me.vy = -11; me.onGround=false; keys.jump=false; }
+  me.block = !!keys.block;
+  if(keys.punch){ tryAttack(me,'punch'); keys.punch=false; }
+  if(keys.kick){ tryAttack(me,'kick'); keys.kick=false; }
+  // AI fallback
+  if(mode === 'ai') aiStep();
+  // physics + particles
+  updatePhysics(me); updatePhysics(other); updateParticles();
+  // HUD
+  document.getElementById('hp1').innerText = Math.round(me.hp); document.getElementById('hp2').innerText = Math.round(other.hp);
+  document.getElementById('bar1').style.width = ((me.hp/INITIAL_HP)*100) + '%'; document.getElementById('bar2').style.width = ((other.hp/INITIAL_HP)*100) + '%';
+  // periodic send if DC open
+  if(dc && dc.readyState === 'open' && (now % 100 < 20)) sendDC({type:'state', x: me.x, y: me.y, hp: me.hp, t: now});
+  requestAnimationFrame(loop);
+}
 
-/* Graceful fallback: if signaling not configured, show message */
-if(SIGNALING_SERVER_URL.includes('EXEMPLE')){ document.getElementById('net-status').innerText = 'Signaling non configuré — mode en ligne désactivé'; }
-
-/* END of file */
+/* END game code */
 </script>
 </body>
 </html>
