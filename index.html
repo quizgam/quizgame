@@ -1,164 +1,286 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Jeu de Voiture Réaliste</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: #87CEEB; }
-    canvas { display: block; margin: auto; background: #87CEEB; }
-    #score {
-      position: absolute;
-      top: 10px; left: 10px;
-      color: white; font-size: 20px;
-      font-family: Arial, sans-serif;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>SI Admin — Plateforme de gestion & supervision (Prototype)</title>
+<style>
+  :root{--bg:#0f1724;--card:#0b1220;--accent:#2f6fbf;--muted:#9aa7bf;--ok:#1fa055;--warn:#f59e0b;--err:#ef4444}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,#071029 0%, #07192b 100%);color:#e6eef8}
+  .app{display:grid;grid-template-columns:260px 1fr;min-height:100vh}
+  .sidebar{background:linear-gradient(180deg,#071428,#081828);padding:18px}
+  .logo{font-weight:800;margin-bottom:12px}
+  nav{display:flex;flex-direction:column;gap:6px}
+  nav button{background:transparent;border:none;color:var(--muted);text-align:left;padding:10px;border-radius:8px;cursor:pointer}
+  nav button.active{background:rgba(255,255,255,0.03);color:var(--accent)}
+  .main{padding:18px}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+  .grid{display:grid;grid-template-columns:1fr 360px;gap:14px}
+  h2{margin:0 0 8px}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03)}
+  .muted{color:var(--muted);font-size:13px}
+  .btn{background:var(--accent);border:none;padding:8px 10px;color:#fff;border-radius:8px;cursor:pointer}
+  input,select,textarea{width:100%;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+  .small{font-size:13px;color:var(--muted)}
+  .status-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .row{display:flex;gap:8px}
+  .project-bar{height:10px;background:rgba(255,255,255,0.06);border-radius:6px;overflow:hidden}
+  .project-progress{height:100%;background:linear-gradient(90deg,var(--accent),#5aa0ff);width:0%}
+  footer{margin-top:18px;color:var(--muted);font-size:13px}
+  @media(max-width:900px){.app{grid-template-columns:1fr} .grid{grid-template-columns:1fr} .sidebar{display:flex;overflow:auto}}
+</style>
 </head>
 <body>
-<div id="score">Score: 0</div>
-<canvas id="game" width="400" height="600"></canvas>
+<div class="app">
+  <aside class="sidebar card">
+    <div class="logo">SI Admin — Prototype</div>
+    <div class="muted">Outils pour concevoir, administrer, sécuriser et superviser un SI</div>
+    <nav id="nav">
+      <button data-view="dashboard" class="active">Tableau de bord</button>
+      <button data-view="inventory">Inventaire & Actifs</button>
+      <button data-view="network">Réseau & Services</button>
+      <button data-view="backup">Sauvegardes</button>
+      <button data-view="security">Sécurité & Audit</button>
+      <button data-view="incidents">Incidents & Tickets</button>
+      <button data-view="users">Utilisateurs & Postes</button>
+      <button data-view="integration">Intégration & Déploiement</button>
+      <button data-view="monitoring">Supervision</button>
+      <button data-view="projects">Projets SI</button>
+      <button data-view="settings">Paramètres / Export</button>
+    </nav>
+    <footer>Prototype — Sauvegardes locales (localStorage). Utilise pour maquetter et planifier.</footer>
+  </aside>
 
-<!-- Sons -->
-<audio id="engine" src="https://actions.google.com/sounds/v1/transportation/car_engine.ogg" loop></audio>
-<audio id="crash" src="https://actions.google.com/sounds/v1/impacts/crash.ogg"></audio>
+  <main class="main">
+    <div class="top">
+      <div>
+        <h1 id="page-title">Tableau de bord</h1>
+        <div class="muted">Vue synthétique du système d'information</div>
+      </div>
+      <div class="row">
+        <div class="small">Utilisateur: Admin</div>
+        <button class="btn" id="seed-data">Charger exemples</button>
+      </div>
+    </div>
+
+    <div id="content">
+      <!-- dynamic content injected here -->
+    </div>
+  </main>
+</div>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const scoreEl = document.getElementById("score");
+/* SI Admin — Prototype front-end (single file) 
+   Fonctionnalités: inventaire, réseau, sauvegarde, sécurité, incidents, utilisateurs, intégration, monitoring, projets
+   Données persistées en localStorage sous la clé 'siadmin-data'
+*/
 
-const carImg = new Image();
-carImg.src = "https://i.imgur.com/Qr8qW3C.png"; // voiture joueur (PNG)
+// --- data model & persistence ---
+const STORAGE_KEY = 'siadmin-data-v1';
+let state = {
+  inventory: [], // assets {id,name,type,ip,os,owner,location,status}
+  services: [], // {id,name,port,proto,status}
+  backups: [], // {id,target,frequency,lastRun,nextRun,ok}
+  audits: [], // {id,title,critical,desc,date,remediation}
+  incidents: [], // {id,title,desc,status,priority,assigned,created}
+  users: [], // {id,name,role,email,devices:[]}
+  monitoring: {nodes:[],events:[]},
+  projects: []
+};
 
-let enemyColors = ["red","blue","yellow","green","orange","purple"];
-let car = { x: canvas.width/2 - 25, y: 500, width: 50, height: 100 };
-let enemies = [];
-let speed = 5;
-let score = 0;
-let crashed = false;
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function loadState(){ const raw = localStorage.getItem(STORAGE_KEY); if(raw) state = JSON.parse(raw); }
+loadState();
 
-// === Sons ===
-const engineSound = document.getElementById("engine");
-const crashSound = document.getElementById("crash");
-engineSound.volume = 0.3;
-engineSound.play().catch(()=>{}); // démarrage auto (peut nécessiter clic)
+// utility
+function uid(prefix='id'){ return prefix + '-' + Math.random().toString(36).slice(2,9); }
+function fmtDate(d){ const dt = new Date(d); return dt.toLocaleString(); }
 
-// === Contrôles ===
-let touchStartX = null;
-document.addEventListener("touchstart", e => {
-  touchStartX = e.touches[0].clientX;
-});
-document.addEventListener("touchmove", e => {
-  let dx = e.touches[0].clientX - touchStartX;
-  car.x += dx * 0.2;
-  touchStartX = e.touches[0].clientX;
-});
-
-window.addEventListener("deviceorientation", function(e) {
-  if (e.gamma) {
-    car.x += e.gamma * 0.2;
-  }
-});
-
-document.addEventListener("keydown", e => {
-  const step = 20;
-  if (e.key === "ArrowLeft") car.x -= step;
-  if (e.key === "ArrowRight") car.x += step;
+// --- navigation ---
+const nav = document.getElementById('nav');
+const content = document.getElementById('content');
+const pageTitle = document.getElementById('page-title');
+nav.addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  [...nav.querySelectorAll('button')].forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  showView(btn.dataset.view);
 });
 
-// === Génération ennemis ===
-function spawnEnemy() {
-  const laneWidth = 80;
-  const lane = Math.floor(Math.random() * 3);
-  enemies.push({
-    x: 70 + lane * laneWidth,
-    y: -120,
-    width: 50,
-    height: 100,
-    color: enemyColors[Math.floor(Math.random()*enemyColors.length)]
+// --- seed sample data ---
+document.getElementById('seed-data').addEventListener('click', ()=>{
+  state.inventory = [
+    {id:uid('srv'),name:'srv-db-01',type:'server',ip:'10.0.1.10',os:'Ubuntu 22.04',owner:'DBA',location:'DC1',status:'ok'},
+    {id:uid('srv'),name:'fw-edge',type:'firewall',ip:'203.0.113.1',os:'PanOS',owner:'NetOps',location:'Edge',status:'ok'},
+    {id:uid('pc'),name:'alice-laptop',type:'workstation',ip:'10.0.2.23',os:'Win10',owner:'Alice',location:'Paris',status:'ok'}
+  ];
+  state.services = [
+    {id:uid('svc'),name:'web',port:443,proto:'tcp',status:'ok',host:'srv-web-01'},
+    {id:uid('svc'),name:'ssh',port:22,proto:'tcp',status:'ok',host:'all'}
+  ];
+  state.backups = [
+    {id:uid('bak'),target:'srv-db-01:/var/lib/mysql',frequency:'daily',lastRun:Date.now()-3600*1000*24,nextRun:Date.now()+3600*1000*24,ok:true}
+  ];
+  state.audits = [ {id:uid('aud'),title:'Audit mots de passe',critical:true,desc:'Vérifier politique mots de passe',date:Date.now(),remediation:'Activer lenforcement 12+ chars'} ];
+  state.incidents = [ {id:uid('inc'),title:'Perte connectivité DC1',desc:'Switch core down',status:'open',priority:'P1',assigned:'NetOps',created:Date.now()} ];
+  state.users = [ {id:uid('usr'),name:'Alice',role:'Developer',email:'alice@example.com',devices:['alice-laptop']} ];
+  state.monitoring.nodes = [ {id:uid('node'),name:'srv-db-01',cpu:12,mem:36,up:true}, {id:uid('node'),name:'fw-edge',cpu:5,mem:12,up:true} ];
+  state.projects = [ {id:uid('proj'),name:'Mise à jour infra',owner:'CTO',progress:20,eta:Date.now()+1000*60*60*24*30} ];
+  saveState();
+  alert('Données exemples chargées.');
+  showView('dashboard');
+});
+
+// --- views renderer ---
+function showView(name){ pageTitle.textContent = ({dashboard:'Tableau de bord',inventory:'Inventaire & Actifs',network:'Réseau & Services',backup:'Sauvegardes',security:'Sécurité & Audit',incidents:'Incidents & Tickets',users:'Utilisateurs & Postes',integration:'Intégration & Déploiement',monitoring:'Supervision',projects:'Projets SI',settings:'Paramètres / Export'})[name] || name;
+  content.innerHTML = '';
+  if(name==='dashboard') renderDashboard();
+  if(name==='inventory') renderInventory();
+  if(name==='network') renderNetwork();
+  if(name==='backup') renderBackup();
+  if(name==='security') renderSecurity();
+  if(name==='incidents') renderIncidents();
+  if(name==='users') renderUsers();
+  if(name==='integration') renderIntegration();
+  if(name==='monitoring') renderMonitoring();
+  if(name==='projects') renderProjects();
+  if(name==='settings') renderSettings();
+}
+
+// --- Dashboard ---
+function renderDashboard(){
+  const el = document.createElement('div'); el.className='grid';
+  el.innerHTML = `
+    <div>
+      <div class="card"><h2>Synthèse</h2>
+        <div class="row">
+          <div style="flex:1">
+            <div class="small">Serveurs: <strong>${state.inventory.filter(i=>i.type==='server').length}</strong></div>
+            <div class="small">Périphériques réseau: <strong>${state.inventory.filter(i=>i.type==='firewall'||i.type==='switch').length}</strong></div>
+            <div class="small">Postes: <strong>${state.inventory.filter(i=>i.type==='workstation'||i.type==='laptop').length}</strong></div>
+            <div class="small">Services actifs: <strong>${state.services.length}</strong></div>
+          </div>
+          <div style="width:260px">
+            <div class="small">Incidents ouverts: <strong>${state.incidents.filter(i=>i.status!=='closed').length}</strong></div>
+            <div class="small">Audits en retard: <strong>${state.audits.filter(a=>a.critical).length}</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px"><h2>Monitoring (simulé)</h2>
+        <div id="monitor-mini"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px"><h2>Incidents récents</h2>
+        <div class="list" id="recent-incidents"></div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="card"><h2>Projets</h2><div id="mini-projects"></div></div>
+      <div class="card" style="margin-top:12px"><h2>Sauvegardes</h2><div id="mini-backups"></div></div>
+    </aside>
+  `;
+  content.appendChild(el);
+  // populate monitoring
+  const mon = document.getElementById('monitor-mini');
+  state.monitoring.nodes.forEach(n=>{
+    const div = document.createElement('div'); div.className='small';
+    div.innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${n.up?'#1fa055':'#ef4444'};margin-right:8px"></span>${n.name} — CPU ${n.cpu}% — MEM ${n.mem}%`;
+    mon.appendChild(div);
+  });
+  const inc = document.getElementById('recent-incidents');
+  state.incidents.slice(-5).reverse().forEach(i=>{ const d=document.createElement('div'); d.className='small'; d.textContent=`[${i.priority}] ${i.title} — ${i.status}`; inc.appendChild(d); });
+  const mp = document.getElementById('mini-projects'); state.projects.forEach(p=>{ const d=document.createElement('div'); d.innerHTML=`<div class="small">${p.name} — ${p.progress}%</div><div class="project-bar"><i class="project-progress" style="width:${p.progress}%"></i></div>`; mp.appendChild(d); });
+  const mb = document.getElementById('mini-backups'); state.backups.forEach(b=>{ const d=document.createElement('div'); d.className='small'; d.innerHTML = `${b.target} — ${b.frequency} — Dernière: ${fmtDate(b.lastRun)} — ${b.ok?'<span style="color:var(--ok)">OK</span>':'<span style="color:var(--err)">ERREUR</span>'}`; mb.appendChild(d); });
+}
+
+// --- Inventory ---
+function renderInventory(){
+  const el = document.createElement('div'); el.innerHTML = `<div class="card"><h2>Inventaire & Actifs</h2>
+    <div style="margin-bottom:8px"><button id="add-asset" class="btn">Ajouter un actif</button> <button id="export-inv" class="btn" style="background:#6b7280">Exporter CSV</button></div>
+    <table><thead><tr><th>Nom</th><th>Type</th><th>IP</th><th>OS</th><th>Propriétaire</th><th>Lieu</th><th>État</th><th></th></tr></thead><tbody id="inv-body"></tbody></table>
+  </div>`;
+  content.appendChild(el);
+  document.getElementById('add-asset').addEventListener('click', ()=>{ openAssetForm(); });
+  document.getElementById('export-inv').addEventListener('click', ()=>{ exportCSV(state.inventory,'inventory.csv'); });
+  const body = document.getElementById('inv-body'); state.inventory.forEach(a=>{ const tr=document.createElement('tr'); tr.innerHTML = `<td>${a.name}</td><td>${a.type}</td><td>${a.ip||''}</td><td>${a.os||''}</td><td>${a.owner||''}</td><td>${a.location||''}</td><td>${a.status||''}</td><td><button data-id="${a.id}" class="btn small edit">Éditer</button></td>`; body.appendChild(tr); });
+  body.querySelectorAll('.edit').forEach(b=>b.addEventListener('click', e=>{ openAssetForm(state.inventory.find(i=>i.id===b.dataset.id)); }));
+}
+function openAssetForm(asset){ const id = asset?asset.id:''; const modal = document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='520px'; modal.style.zIndex=9999; modal.innerHTML = `
+  <h3>${asset?'Éditer actif':'Ajouter un actif'}</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><input id="a-name" placeholder="Nom" value="${asset?asset.name:''}"><input id="a-type" placeholder="Type (server, firewall, workstation)" value="${asset?asset.type:''}"><input id="a-ip" placeholder="IP" value="${asset?asset.ip:''}"><input id="a-os" placeholder="OS" value="${asset?asset.os:''}"><input id="a-owner" placeholder="Propriétaire" value="${asset?asset.owner:''}"><input id="a-location" placeholder="Lieu" value="${asset?asset.location:''}"></div>
+  <div style="display:flex;gap:8px;margin-top:10px"><button id="save-asset" class="btn">Enregistrer</button><button id="cancel-asset" class="btn ghost">Annuler</button></div>
+`;
+  document.body.appendChild(modal);
+  modal.querySelector('#cancel-asset').addEventListener('click', ()=>modal.remove());
+  modal.querySelector('#save-asset').addEventListener('click', ()=>{
+    const obj = {id: asset?asset.id:uid('ast'), name:modal.querySelector('#a-name').value, type:modal.querySelector('#a-type').value, ip:modal.querySelector('#a-ip').value, os:modal.querySelector('#a-os').value, owner:modal.querySelector('#a-owner').value, location:modal.querySelector('#a-location').value, status:'ok'};
+    if(asset){ const idx = state.inventory.findIndex(i=>i.id===asset.id); state.inventory[idx]=obj; } else state.inventory.push(obj);
+    saveState(); modal.remove(); showView('inventory');
   });
 }
-setInterval(spawnEnemy, 1500);
 
-// === Collision ===
-function isColliding(a, b) {
-  return !(
-    a.x + a.width < b.x ||
-    a.x > b.x + b.width ||
-    a.y + a.height < b.y ||
-    a.y > b.y + b.height
-  );
-}
+// --- Network & services ---
+function renderNetwork(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Réseau & Services</h2><div style="display:flex;gap:8px;margin-bottom:10px"><button id="add-svc" class="btn">Ajouter service</button><button id="scan-svc" class="btn ghost">Scan réseau (simulate)</button></div><div id="svc-list"></div>`; content.appendChild(el);
+  document.getElementById('add-svc').addEventListener('click', ()=>{ openServiceForm(); });
+  document.getElementById('scan-svc').addEventListener('click', ()=>{ alert('Scan simulé: aucun changement'); });
+  const list = document.getElementById('svc-list'); if(state.services.length===0) list.innerHTML='<div class="small muted">Aucun service enregistré</div>';
+  state.services.forEach(s=>{ const d=document.createElement('div'); d.className='small'; d.innerHTML=`<strong>${s.name}</strong> on ${s.port}/${s.proto} — ${s.status} (host: ${s.host||'-'})`; list.appendChild(d); }); }
+function openServiceForm(svc){ const modal=document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='420px'; modal.style.zIndex=9999; modal.innerHTML=`<h3>${svc?'Éditer service':'Ajouter service'}</h3><input id="s-name" placeholder="Nom" value='${svc?svc.name:''}'><div class="row"><input id="s-port" placeholder="Port" value='${svc?svc.port:''}'><select id="s-proto"><option value="tcp">TCP</option><option value="udp">UDP</option></select></div><div style="display:flex;gap:8px;margin-top:10px"><button id="save-svc" class="btn">Enregistrer</button><button id="cancel-svc" class="btn ghost">Annuler</button></div>`; document.body.appendChild(modal); modal.querySelector('#cancel-svc').addEventListener('click', ()=>modal.remove()); modal.querySelector('#save-svc').addEventListener('click', ()=>{ const obj={id:svc?svc.id:uid('svc'),name:modal.querySelector('#s-name').value,port:modal.querySelector('#s-port').value,proto:modal.querySelector('#s-proto').value,status:'ok'}; if(svc){ const i=state.services.findIndex(x=>x.id===svc.id); state.services[i]=obj; } else state.services.push(obj); saveState(); modal.remove(); showView('network'); }); }
 
-// === Boucle jeu ===
-function draw() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+// --- Backup ---
+function renderBackup(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Plan de sauvegarde</h2><div style="margin-bottom:8px"><button id="add-bak" class="btn">Ajouter tâche</button></div><div id="bak-list"></div>`; content.appendChild(el); document.getElementById('add-bak').addEventListener('click', ()=>openBackupForm()); const list=document.getElementById('bak-list'); state.backups.forEach(b=>{ const d=document.createElement('div'); d.className='small'; d.innerHTML=`<strong>${b.target}</strong> — ${b.frequency} — Dernière: ${b.lastRun?fmtDate(b.lastRun):'jamais'} — ${b.ok?'<span style="color:var(--ok)">OK</span>':'<span style="color:var(--err)">ERREUR</span>'}`; list.appendChild(d); }); }
+function openBackupForm(b){ const modal=document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='520px'; modal.style.zIndex=9999; modal.innerHTML=`<h3>${b?'Éditer sauvegarde':'Nouvelle sauvegarde'}</h3><input id="bk-target" placeholder="Cible (ex: srv:/data)" value='${b?b.target:''}'><div class="row"><select id="bk-freq"><option>daily</option><option>weekly</option><option>monthly</option></select><input id="bk-last" placeholder="lastRun (timestamp)" value='${b?b.lastRun:''}'></div><div style="display:flex;gap:8px;margin-top:10px"><button id="save-bk" class="btn">Enregistrer</button><button id="cancel-bk" class="btn ghost">Annuler</button></div>`; document.body.appendChild(modal); modal.querySelector('#cancel-bk').addEventListener('click', ()=>modal.remove()); modal.querySelector('#save-bk').addEventListener('click', ()=>{ const obj={id:b?b.id:uid('bk'),target:modal.querySelector('#bk-target').value,frequency:modal.querySelector('#bk-freq').value,lastRun:Date.now(),nextRun:Date.now()+86400000,ok:true}; if(b){ const i=state.backups.findIndex(x=>x.id===b.id); state.backups[i]=obj; } else state.backups.push(obj); saveState(); modal.remove(); showView('backup'); }); }
 
-  // Ciel
-  ctx.fillStyle = "#87CEEB";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+// --- Security / Audit ---
+function renderSecurity(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Sécurité & Audit</h2><div style="margin-bottom:8px"><button id="add-audit" class="btn">Ajouter audit</button></div><div id="audit-list"></div>`; content.appendChild(el); document.getElementById('add-audit').addEventListener('click', ()=>openAuditForm()); const list=document.getElementById('audit-list'); state.audits.forEach(a=>{ const d=document.createElement('div'); d.className='small'; d.innerHTML=`<strong>${a.title}</strong> — Critique: ${a.critical?'Oui':'Non'} — ${fmtDate(a.date)}`; list.appendChild(d); }); }
+function openAuditForm(a){ const modal=document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='520px'; modal.style.zIndex=9999; modal.innerHTML=`<h3>${a?'Éditer audit':'Nouvel audit'}</h3><input id="aud-title" placeholder="Titre" value='${a?a.title:''}'><textarea id="aud-desc" placeholder="Description">${a?a.desc:''}</textarea><div style="display:flex;gap:8px;margin-top:10px"><button id="save-aud" class="btn">Enregistrer</button><button id="cancel-aud" class="btn ghost">Annuler</button></div>`; document.body.appendChild(modal); modal.querySelector('#cancel-aud').addEventListener('click', ()=>modal.remove()); modal.querySelector('#save-aud').addEventListener('click', ()=>{ const obj={id:a?a.id:uid('aud'),title:modal.querySelector('#aud-title').value,desc:modal.querySelector('#aud-desc').value,critical:false,date:Date.now()}; if(a){ const i=state.audits.findIndex(x=>x.id===a.id); state.audits[i]=obj; } else state.audits.push(obj); saveState(); modal.remove(); showView('security'); }); }
 
-  // Herbe
-  ctx.fillStyle = "#228B22";
-  ctx.fillRect(0, 0, 60, canvas.height);
-  ctx.fillRect(canvas.width - 60, 0, 60, canvas.height);
+// --- Incidents / Tickets ---
+function renderIncidents(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Incidents & Tickets</h2><div style="margin-bottom:8px"><button id="new-inc" class="btn">Nouveau incident</button></div><table><thead><tr><th>Titre</th><th>Priorité</th><th>État</th><th>Assigné</th><th>Créé</th></tr></thead><tbody id="inc-body"></tbody></table></div>`; content.appendChild(el); document.getElementById('new-inc').addEventListener('click', ()=>openIncidentForm()); const body=document.getElementById('inc-body'); state.incidents.forEach(i=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${i.title}</td><td>${i.priority}</td><td>${i.status}</td><td>${i.assigned||''}</td><td>${fmtDate(i.created)}</td>`; body.appendChild(tr); }); }
+function openIncidentForm(it){ const modal=document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='520px'; modal.style.zIndex=9999; modal.innerHTML=`<h3>${it?'Éditer incident':'Nouvel incident'}</h3><input id="inc-title" placeholder="Titre" value='${it?it.title:''}'><textarea id="inc-desc" placeholder="Description">${it?it.desc:''}</textarea><div class="row"><select id="inc-prio"><option>P1</option><option>P2</option><option>P3</option></select><input id="inc-assign" placeholder="Assigné" value='${it?it.assigned:''}'></div><div style="display:flex;gap:8px;margin-top:10px"><button id="save-inc" class="btn">Créer</button><button id="cancel-inc" class="btn ghost">Annuler</button></div>`; document.body.appendChild(modal); modal.querySelector('#cancel-inc').addEventListener('click', ()=>modal.remove()); modal.querySelector('#save-inc').addEventListener('click', ()=>{ const obj={id:it?it.id:uid('inc'),title:modal.querySelector('#inc-title').value,desc:modal.querySelector('#inc-desc').value,status:'open',priority:modal.querySelector('#inc-prio').value,assigned:modal.querySelector('#inc-assign').value,created:Date.now()}; if(it){ const i=state.incidents.findIndex(x=>x.id===it.id); state.incidents[i]=obj; } else state.incidents.push(obj); saveState(); modal.remove(); showView('incidents'); }); }
 
-  // Route
-  ctx.fillStyle = "#2f2f2f";
-  ctx.fillRect(60, 0, canvas.width - 120, canvas.height);
+// --- Users & workstations ---
+function renderUsers(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Utilisateurs & Périphériques</h2><div style="margin-bottom:8px"><button id="new-user" class="btn">Nouveau utilisateur</button></div><div id="users-list"></div>`; content.appendChild(el); document.getElementById('new-user').addEventListener('click', ()=>openUserForm()); const list=document.getElementById('users-list'); if(state.users.length===0) list.innerHTML='<div class="small muted">Aucun utilisateur</div>'; state.users.forEach(u=>{ const d=document.createElement('div'); d.className='small'; d.innerHTML=`<strong>${u.name}</strong> — ${u.role} — ${u.email}`; list.appendChild(d); }); }
+function openUserForm(u){ const modal=document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='520px'; modal.style.zIndex=9999; modal.innerHTML=`<h3>${u?'Éditer utilisateur':'Nouveau utilisateur'}</h3><input id="u-name" placeholder="Nom" value='${u?u.name:''}'><input id="u-email" placeholder="Email" value='${u?u.email:''}'><input id="u-role" placeholder="Role" value='${u?u.role:''}'><div style="display:flex;gap:8px;margin-top:10px"><button id="save-u" class="btn">Enregistrer</button><button id="cancel-u" class="btn ghost">Annuler</button></div>`; document.body.appendChild(modal); modal.querySelector('#cancel-u').addEventListener('click', ()=>modal.remove()); modal.querySelector('#save-u').addEventListener('click', ()=>{ const obj={id:u?u.id:uid('usr'),name:modal.querySelector('#u-name').value,email:modal.querySelector('#u-email').value,role:modal.querySelector('#u-role').value,devices:[]}; if(u){ const i=state.users.findIndex(x=>x.id===u.id); state.users[i]=obj; } else state.users.push(obj); saveState(); modal.remove(); showView('users'); }); }
 
-  // Lignes
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 4;
-  for (let y = 0; y < canvas.height; y += 40) {
-    ctx.beginPath();
-    ctx.moveTo(canvas.width/2, y);
-    ctx.lineTo(canvas.width/2, y + 20);
-    ctx.stroke();
-  }
+// --- Integration & deployment (simple tasks) ---
+function renderIntegration(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Intégration & Déploiement</h2><p class="small">Gérer tâches d'intégration, CI/CD, scripts de déploiement.</p><div style="margin-top:8px"><textarea id="deploy-script" placeholder="Script de déploiement (bash)"></textarea><div style="margin-top:8px"><button id="run-deploy" class="btn">Simuler déploiement</button></div></div></div>`; content.appendChild(el); document.getElementById('run-deploy').addEventListener('click', ()=>{ alert('Simulation: déploiement OK'); }); }
 
-  // Voiture joueur
-  ctx.drawImage(carImg, car.x, car.y, car.width, car.height);
+// --- Monitoring ---
+let monitorInterval=null;
+function renderMonitoring(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Supervision & Performance</h2><div style="display:flex;gap:8px;margin-bottom:8px"><button id="start-mon" class="btn">Démarrer surveillance</button><button id="stop-mon" class="btn ghost">Arrêter</button></div><div id="mon-view"></div>`; content.appendChild(el); document.getElementById('start-mon').addEventListener('click', startMonitoring); document.getElementById('stop-mon').addEventListener('click', stopMonitoring); updateMonView(); }
+function updateMonView(){ const container=document.getElementById('mon-view'); if(!container) return; container.innerHTML=''; state.monitoring.nodes.forEach(n=>{ const d=document.createElement('div'); d.className='small'; d.innerHTML=`<strong>${n.name}</strong> — CPU: ${n.cpu}% — MEM: ${n.mem}% — Status: ${n.up?'<span style="color:var(--ok)">UP</span>':'<span style="color:var(--err)">DOWN</span>'}`; container.appendChild(d); }); }
+function startMonitoring(){ if(monitorInterval) return; monitorInterval=setInterval(()=>{ state.monitoring.nodes.forEach(n=>{ // simulate fluctu
+  n.cpu = Math.max(1, Math.min(95, n.cpu + (Math.random()-0.5)*10));
+  n.mem = Math.max(2, Math.min(90, n.mem + (Math.random()-0.5)*6));
+  n.up = Math.random() > 0.01; if(!n.up) state.monitoring.events.push({id:uid('ev'),node:n.name,ts:Date.now(),type:'down'});
+ }); saveState(); updateMonView(); }, 3000); }
+function stopMonitoring(){ clearInterval(monitorInterval); monitorInterval=null; }
 
-  // Ennemis
-  for (let i = 0; i < enemies.length; i++) {
-    let e = enemies[i];
-    e.y += speed;
-    ctx.fillStyle = e.color;
-    ctx.fillRect(e.x, e.y, e.width, e.height);
+// --- Projects ---
+function renderProjects(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Projets SI</h2><div style="margin-bottom:8px"><button id="new-proj" class="btn">Nouveau projet</button></div><div id="proj-list"></div>`; content.appendChild(el); document.getElementById('new-proj').addEventListener('click', ()=>openProjectForm()); const list=document.getElementById('proj-list'); state.projects.forEach(p=>{ const d=document.createElement('div'); d.innerHTML=`<div class="small"><strong>${p.name}</strong> — ${p.owner} — ${p.progress}%</div><div class="project-bar"><i class="project-progress" style="width:${p.progress}%"></i></div>`; list.appendChild(d); }); }
+function openProjectForm(p){ const modal=document.createElement('div'); modal.className='card'; modal.style.position='fixed'; modal.style.left='50%'; modal.style.top='50%'; modal.style.transform='translate(-50%,-50%)'; modal.style.width='520px'; modal.style.zIndex=9999; modal.innerHTML=`<h3>${p? 'Éditer' : 'Nouveau'} projet</h3><input id="pr-name" placeholder="Nom" value='${p?p.name:''}'><input id="pr-owner" placeholder="Propriétaire" value='${p?p.owner:''}'><input id="pr-prog" placeholder="Progress (0-100)" value='${p?p.progress||0:0}'><div style="display:flex;gap:8px;margin-top:10px"><button id="save-pr" class="btn">Enregistrer</button><button id="cancel-pr" class="btn ghost">Annuler</button></div>`; document.body.appendChild(modal); modal.querySelector('#cancel-pr').addEventListener('click', ()=>modal.remove()); modal.querySelector('#save-pr').addEventListener('click', ()=>{ const obj={id:p?p.id:uid('proj'),name:modal.querySelector('#pr-name').value,owner:modal.querySelector('#pr-owner').value,progress:Number(modal.querySelector('#pr-prog').value||0)}; if(p){ const i=state.projects.findIndex(x=>x.id===p.id); state.projects[i]=obj; } else state.projects.push(obj); saveState(); modal.remove(); showView('projects'); }); }
 
-    // collision
-    if (!crashed && isColliding(car, e)) {
-      crashed = true;
-      crashSound.play();
-      engineSound.pause();
+// --- Settings / export ---
+function renderSettings(){ const el=document.createElement('div'); el.className='card'; el.innerHTML=`<h2>Paramètres & Export</h2>
+  <div style="display:flex;gap:8px"><button id="export-json" class="btn">Exporter JSON</button><button id="import-json" class="btn ghost">Importer JSON</button></div>
+  <div style="margin-top:12px" class="small muted">Export/Import pour sauvegarde, partage ou migration.</div>`; content.appendChild(el); document.getElementById('export-json').addEventListener('click', ()=>{ downloadJSON(state,'siadmin-export.json'); }); document.getElementById('import-json').addEventListener('click', ()=>{ openImportDialog(); }); }
+function downloadJSON(obj, filename){ const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(obj,null,2)); a.download=filename; a.click(); }
+function openImportDialog(){ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=e=>{ const f=e.target.files[0]; const r=new FileReader(); r.onload=ev=>{ try{ const parsed=JSON.parse(ev.target.result); state=parsed; saveState(); alert('Import OK'); showView('dashboard'); }catch(err){ alert('Erreur import'); } }; r.readAsText(f); }; inp.click(); }
+function downloadCSV(rows, filename){ if(!rows||rows.length===0) return; const keys=Object.keys(rows[0]); const csv=[keys.join(',')]; rows.forEach(r=>{ csv.push(keys.map(k=>`"${(r[k]||'').toString().replace(/"/g,'""')}"`).join(',')); }); const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv.join('\n')); a.download=filename; a.click(); }
+function exportCSV(arr, name){ downloadCSV(arr,name); }
 
-      // Feu
-      ctx.fillStyle = "orange";
-      ctx.font = "40px Arial";
-      ctx.fillText("🔥 BOUM !", car.x - 10, car.y);
+// initial view
+showView('dashboard');
 
-      setTimeout(()=>{
-        alert("💥 Crash ! Score final : " + score);
-        document.location.reload();
-      }, 1000);
-    }
-  }
-  enemies = enemies.filter(e => e.y < canvas.height);
-
-  // Limites
-  if (car.x < 70) car.x = 70;
-  if (car.x > canvas.width - car.width - 70) car.x = canvas.width - car.width - 70;
-
-  // Score
-  if (!crashed) {
-    score++;
-    scoreEl.textContent = "Score: " + score;
-    requestAnimationFrame(draw);
-  }
-}
-
-draw();
+// expose to window for debugging
+window.__siadmin = {state, saveState, loadState};
 </script>
 </body>
 </html>
