@@ -2,9 +2,9 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Jeu de Voiture - Course infinie</title>
+  <title>Jeu de Voiture Réaliste</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #87CEEB; } /* ciel bleu */
+    body { margin: 0; overflow: hidden; background: #87CEEB; }
     canvas { display: block; margin: auto; background: #87CEEB; }
     #score {
       position: absolute;
@@ -18,22 +18,32 @@
 <div id="score">Score: 0</div>
 <canvas id="game" width="400" height="600"></canvas>
 
+<!-- Sons -->
+<audio id="engine" src="https://actions.google.com/sounds/v1/transportation/car_engine.ogg" loop></audio>
+<audio id="crash" src="https://actions.google.com/sounds/v1/impacts/crash.ogg"></audio>
+
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 
 const carImg = new Image();
-carImg.src = "https://i.imgur.com/Qr8qW3C.png"; // voiture joueur
-const enemyImg = new Image();
-enemyImg.src = "https://i.imgur.com/Fo3LR0b.png"; // voiture ennemie
+carImg.src = "https://i.imgur.com/Qr8qW3C.png"; // voiture joueur (PNG)
 
+let enemyColors = ["red","blue","yellow","green","orange","purple"];
 let car = { x: canvas.width/2 - 25, y: 500, width: 50, height: 100 };
 let enemies = [];
 let speed = 5;
 let score = 0;
+let crashed = false;
 
-// Contrôles tactiles
+// === Sons ===
+const engineSound = document.getElementById("engine");
+const crashSound = document.getElementById("crash");
+engineSound.volume = 0.3;
+engineSound.play().catch(()=>{}); // démarrage auto (peut nécessiter clic)
+
+// === Contrôles ===
 let touchStartX = null;
 document.addEventListener("touchstart", e => {
   touchStartX = e.touches[0].clientX;
@@ -44,27 +54,33 @@ document.addEventListener("touchmove", e => {
   touchStartX = e.touches[0].clientX;
 });
 
-// Inclinaison
 window.addEventListener("deviceorientation", function(e) {
   if (e.gamma) {
     car.x += e.gamma * 0.2;
   }
 });
 
-// Générer ennemies
+document.addEventListener("keydown", e => {
+  const step = 20;
+  if (e.key === "ArrowLeft") car.x -= step;
+  if (e.key === "ArrowRight") car.x += step;
+});
+
+// === Génération ennemis ===
 function spawnEnemy() {
   const laneWidth = 80;
-  const lane = Math.floor(Math.random() * 3); // 3 voies
+  const lane = Math.floor(Math.random() * 3);
   enemies.push({
     x: 70 + lane * laneWidth,
     y: -120,
     width: 50,
-    height: 100
+    height: 100,
+    color: enemyColors[Math.floor(Math.random()*enemyColors.length)]
   });
 }
 setInterval(spawnEnemy, 1500);
 
-// Détection collision
+// === Collision ===
 function isColliding(a, b) {
   return !(
     a.x + a.width < b.x ||
@@ -74,13 +90,15 @@ function isColliding(a, b) {
   );
 }
 
-// Boucle du jeu
+// === Boucle jeu ===
 function draw() {
-  // Ciel (bleu en haut)
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Ciel
   ctx.fillStyle = "#87CEEB";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Herbe sur les côtés
+  // Herbe
   ctx.fillStyle = "#228B22";
   ctx.fillRect(0, 0, 60, canvas.height);
   ctx.fillRect(canvas.width - 60, 0, 60, canvas.height);
@@ -89,7 +107,7 @@ function draw() {
   ctx.fillStyle = "#2f2f2f";
   ctx.fillRect(60, 0, canvas.width - 120, canvas.height);
 
-  // Lignes de route
+  // Lignes
   ctx.strokeStyle = "white";
   ctx.lineWidth = 4;
   for (let y = 0; y < canvas.height; y += 40) {
@@ -106,24 +124,38 @@ function draw() {
   for (let i = 0; i < enemies.length; i++) {
     let e = enemies[i];
     e.y += speed;
-    ctx.drawImage(enemyImg, e.x, e.y, e.width, e.height);
+    ctx.fillStyle = e.color;
+    ctx.fillRect(e.x, e.y, e.width, e.height);
 
-    if (isColliding(car, e)) {
-      alert("💥 Crash ! Score final : " + score);
-      document.location.reload();
+    // collision
+    if (!crashed && isColliding(car, e)) {
+      crashed = true;
+      crashSound.play();
+      engineSound.pause();
+
+      // Feu
+      ctx.fillStyle = "orange";
+      ctx.font = "40px Arial";
+      ctx.fillText("🔥 BOUM !", car.x - 10, car.y);
+
+      setTimeout(()=>{
+        alert("💥 Crash ! Score final : " + score);
+        document.location.reload();
+      }, 1000);
     }
   }
   enemies = enemies.filter(e => e.y < canvas.height);
 
-  // Limiter la voiture dans la route
+  // Limites
   if (car.x < 70) car.x = 70;
   if (car.x > canvas.width - car.width - 70) car.x = canvas.width - car.width - 70;
 
   // Score
-  score++;
-  scoreEl.textContent = "Score: " + score;
-
-  requestAnimationFrame(draw);
+  if (!crashed) {
+    score++;
+    scoreEl.textContent = "Score: " + score;
+    requestAnimationFrame(draw);
+  }
 }
 
 draw();
