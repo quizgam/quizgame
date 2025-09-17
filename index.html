@@ -1,129 +1,626 @@
-
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Stick Fight Online</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Stick Combat — 2D Arena (GitHub Pages)</title>
 <style>
-  body { margin:0; background:#eee; font-family:sans-serif; text-align:center; }
-  canvas { background:#cce; display:block; margin:0 auto; width:100%; height:60vh; }
-  #hud { display:flex; justify-content:space-around; margin:4px; }
-  .bar { width:40%; background:#333; height:20px; position:relative; }
-  .life { background:#e22; height:100%; width:100%; }
-  .controls { display:flex; flex-wrap:wrap; justify-content:center; margin-top:10px; }
-  .btn { width:70px; height:70px; margin:5px; font-size:18px; }
+  :root{
+    --bg:#0b1220;--panel:#0f1724;--accent:#2ea6ff;--muted:#9aa7bf;
+    --btn-front: #fff; --btn-back:#0d6b9a;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(#071229,#071428);color:#e6eef8;font-family:Inter,Arial,Helvetica,sans-serif}
+  .wrap{max-width:1100px;margin:10px auto;padding:12px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  h1{font-size:18px;margin:0}
+  #topbar{display:flex;gap:8px;align-items:center}
+  #ui{display:flex;gap:8px;align-items:center}
+  #game-area{position:relative;margin-top:10px;background:linear-gradient(180deg,#87ceeb,#bfefff);border-radius:10px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+  canvas{display:block;width:100%;height:60vh}
+  .bottom-panel{display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--panel);border-radius:10px;margin-top:10px}
+  .huds{display:flex;justify-content:space-between;gap:8px}
+  .life-wrap{flex:1;display:flex;flex-direction:column;gap:4px}
+  .life-bar{height:14px;background:rgba(255,255,255,0.06);border-radius:8px;overflow:hidden}
+  .life-fill{height:100%;background:linear-gradient(90deg,#ff6b6b,#e22);width:100%}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:6px}
+  /* 3D tactile buttons */
+  .ctrl-btn{
+    width:72px;height:72px;border-radius:14px;border:none;
+    background:linear-gradient(180deg,var(--btn-front),#dfefff);
+    box-shadow:0 8px 0 var(--btn-back), 0 12px 18px rgba(0,0,0,0.35);
+    font-weight:700;font-size:18px;color:#0b1220;touch-action:none;
+    transform-style:preserve-3d;display:flex;align-items:center;justify-content:center;
+  }
+  .ctrl-btn:active{transform:translateY(6px);box-shadow:0 2px 0 var(--btn-back)}
+  .small{font-size:13px;color:var(--muted)}
+  .center{display:flex;align-items:center;gap:8px}
+  #msg{min-height:20px}
+  .menu{display:flex;gap:8px;align-items:center}
+  select,input[type=text]{padding:6px;border-radius:6px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);padding:6px;border-radius:6px;cursor:pointer}
+  footer{margin-top:12px;color:var(--muted);font-size:12px;text-align:center}
+  @media(max-width:720px){
+    canvas{height:56vh}
+    .ctrl-btn{width:64px;height:64px}
+  }
 </style>
 </head>
 <body>
-<h2>Stick Fight Online</h2>
-<div id="hud">
-  <div class="bar"><div id="life1" class="life"></div></div>
-  <div class="bar"><div id="life2" class="life"></div></div>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Stick Combat — Arène 2D</h1>
+      <div class="small">PV initiales : 15 — Choisis environnement & mode</div>
+    </div>
+    <div id="topbar">
+      <div class="menu">
+        <label class="small">Décor:</label>
+        <select id="env-select">
+          <option value="forest">Forêt</option>
+          <option value="city">Ville</option>
+          <option value="jungle">Jungle</option>
+          <option value="desert">Désert</option>
+        </select>
+      </div>
+      <div class="menu">
+        <button id="btn-ai" class="ghost">Jouer contre IA</button>
+        <button id="btn-online" class="ghost">Jouer en ligne</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="game-area">
+    <canvas id="c"></canvas>
+    <div style="position:absolute;left:8px;top:8px;color:white" id="room-info"></div>
+    <div style="position:absolute;right:8px;top:8px;color:white" id="net-status"></div>
+  </div>
+
+  <div class="bottom-panel">
+    <div class="huds">
+      <div class="life-wrap">
+        <div class="small">Joueur — PV: <span id="hp1">15</span>/15</div>
+        <div class="life-bar"><div id="bar1" class="life-fill"></div></div>
+      </div>
+      <div style="width:160px;display:flex;flex-direction:column;align-items:center">
+        <div class="small">Round</div>
+        <div id="round" style="font-weight:700">1</div>
+      </div>
+      <div class="life-wrap">
+        <div class="small" style="text-align:right">Adversaire — PV: <span id="hp2">15</span>/15</div>
+        <div class="life-bar"><div id="bar2" class="life-fill" style="margin-left:auto;width:100%"></div></div>
+      </div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button class="ctrl-btn" id="left-btn">◀</button>
+      <button class="ctrl-btn" id="right-btn">▶</button>
+      <button class="ctrl-btn" id="jump-btn">⭡</button>
+      <button class="ctrl-btn" id="punch-btn">PO</button>
+      <button class="ctrl-btn" id="kick-btn">KI</button>
+      <button class="ctrl-btn" id="block-btn">BL</button>
+    </div>
+
+    <div class="center">
+      <div id="msg" class="small"></div>
+      <div style="margin-left:auto">
+        <button id="reset" class="ghost">Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>Stick Combat — Demo. Remplace SIGNALING_SERVER_URL dans le code pour activer le pairing WebRTC.</footer>
 </div>
-<canvas id="game"></canvas>
-<div class="controls">
-  <button class="btn" id="left">◀</button>
-  <button class="btn" id="right">▶</button>
-  <button class="btn" id="jump">⭡</button>
-  <button class="btn" id="light">J</button>
-  <button class="btn" id="heavy">K</button>
-  <button class="btn" id="block">L</button>
-</div>
-<div>
-  <button id="playAI">Jouer contre IA</button>
-  <button id="playOnline">Jouer en ligne</button>
-  <div id="status"></div>
-</div>
+
 <script>
-const SIGNALING_SERVER_URL = 'wss://EXEMPLE_SIGNALING_SERVER'; // <== à remplacer
-const canvas = document.getElementById('game');
+/* CONFIG */
+const SIGNALING_SERVER_URL = 'wss://EXEMPLE_SIGNALING_SERVER'; // <-- remplacer par votre serveur de signalisation WebSocket si vous voulez le P2P
+const INITIAL_HP = 15;
+const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
-canvas.width = window.innerWidth; canvas.height = window.innerHeight*0.6;
+let W = canvas.width = Math.min(1200, innerWidth-40);
+let H = canvas.height = Math.round((innerHeight*0.6));
+window.addEventListener('resize',()=>{ W = canvas.width = Math.min(1200, innerWidth-40); H = canvas.height = Math.round((innerHeight*0.6)); });
 
-// Sons (base64 simples)
-const sndHit = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEA..."); // placeholder court
-const sndStep = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEA...");
-
-class Fighter {
-  constructor(x,color){this.x=x;this.y=canvas.height-100;this.vx=0;this.vy=0;this.color=color;this.hp=15;this.dir=1;this.cool=0;}
-  draw(){
-    ctx.strokeStyle=this.color;ctx.lineWidth=5;
-    ctx.beginPath();
-    ctx.moveTo(this.x,this.y-40);ctx.lineTo(this.x,this.y);ctx.lineTo(this.x-20*this.dir,this.y+40);
-    ctx.moveTo(this.x,this.y);ctx.lineTo(this.x+20*this.dir,this.y+40);
-    ctx.moveTo(this.x,this.y-40);ctx.lineTo(this.x-20*this.dir,this.y-80);
-    ctx.moveTo(this.x,this.y-40);ctx.lineTo(this.x+20*this.dir,this.y-80);
-    ctx.stroke();
+/* GAME STATE */
+class Player {
+  constructor(x,color,name='P'){
+    this.x=x; this.y=H-80; this.vx=0; this.vy=0; this.w=18; this.h=60;
+    this.color=color; this.hp=INITIAL_HP; this.facing=1; this.onGround=true;
+    this.state='idle'; this.cool=0; this.block=false; this.name=name;
+    this.comboBuffer=[]; this.comboTime=0;
   }
-  update(){this.x+=this.vx;this.y+=this.vy;if(this.cool>0)this.cool--;}
+  rect(){ return {x:this.x-10,y:this.y-80,width:20,height:80}; }
 }
-let p1=new Fighter(200,'black'), p2=new Fighter(canvas.width-200,'blue');
-let ai=false, online=false, dataChannel=null;
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#070";ctx.fillRect(0,canvas.height-10,canvas.width,10);
-  p1.update();p2.update();p1.draw();p2.draw();
-}
-function loop(){draw();requestAnimationFrame(loop);} loop();
+let me = new Player(140,'#111','Me');
+let them = new Player(W-140,'#0033aa','Enemy');
+let round = 1;
+let mode = 'idle'; // 'ai' or 'online' or 'idle'
+let dc = null; // DataChannel
+let pc = null;
+let ws = null;
+let roomId = null;
+let localRole = null; // 'host' or 'guest'
+let msgEl = document.getElementById('msg');
+let netStatus = document.getElementById('net-status');
+let roomInfo = document.getElementById('room-info');
 
-// Input
-let keys={};
-document.addEventListener('keydown',e=>{keys[e.key]=true;});
-document.addEventListener('keyup',e=>{keys[e.key]=false;});
-function applyControls(f,k){if(k['a']||k['ArrowLeft'])f.vx=-3; else if(k['d']||k['ArrowRight'])f.vx=3; else f.vx=0;
-  if((k['w']||k[' '])&&f.y>=canvas.height-100)f.vy=-10;
-  f.vy+=0.5;if(f.y>canvas.height-100){f.y=canvas.height-100;f.vy=0;}
-  if(k['j']&&f.cool==0){attack(f,1);}if(k['k']&&f.cool==0){attack(f,3);}
+/* AUDIO: WebAudio simple for hit + use SpeechSynthesis for voice lines */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playHitSound(){
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type='square'; o.frequency.value=220 + Math.random()*60;
+  g.gain.value = 0.12;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.18);
+  o.stop(audioCtx.currentTime + 0.2);
 }
-function attack(f,damage){f.cool=30; let target=(f==p1?p2:p1);
-  if(Math.abs(f.x-target.x)<60){ target.hp-=damage; sndHit.play();
-    for(let i=0;i<5;i++){particles.push({x:target.x,y:target.y-40,vx:(Math.random()-0.5)*5,vy:-Math.random()*5,life:30});}
-    if(target.hp<=0){alert((f==p1?'J1':'J2')+" gagne!"); reset();}
+function speak(text, opts={rate:1,voice:null}){
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = opts.rate || 1;
+    if(opts.lang) u.lang = opts.lang;
+    window.speechSynthesis.cancel(); // cancel previous to avoid stacking
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* PARTICLES (blood) */
+let particles = [];
+function spawnBlood(x,y,count=8){
+  for(let i=0;i<count;i++){
+    particles.push({
+      x:x + (Math.random()-0.5)*12,
+      y:y + (Math.random()-0.5)*12,
+      vx:(Math.random()-0.5)*6,
+      vy:-Math.random()*4,
+      life:40 + Math.random()*30
+    });
   }
 }
-let particles=[];
-function drawParticles(){
-  ctx.fillStyle="red";
-  particles.forEach(p=>{ctx.fillRect(p.x,p.y,3,3);p.x+=p.vx;p.y+=p.vy;p.vy+=0.2;p.life--;});
-  particles=particles.filter(p=>p.life>0);
-}
-function gameLoop(){
-  applyControls(p1,keys);
-  if(ai&&!online) aiControls();
-  p1.update();p2.update();
-  document.getElementById('life1').style.width=(p1.hp/15*100)+"%";
-  document.getElementById('life2').style.width=(p2.hp/15*100)+"%";
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#99d";ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle="#070";ctx.fillRect(0,canvas.height-10,canvas.width,10);
-  p1.draw();p2.draw();drawParticles();
-  requestAnimationFrame(gameLoop);
-}
-function reset(){p1.hp=p2.hp=15;}
-function aiControls(){ if(p2.x>p1.x+60)p2.vx=-2; else if(p2.x<p1.x-60)p2.vx=2; else {p2.vx=0; if(Math.random()<0.05)attack(p2,2);} }
-gameLoop();
 
-// Boutons tactiles
-function bindBtn(id,key){document.getElementById(id).addEventListener('mousedown',()=>keys[key]=true);
-document.getElementById(id).addEventListener('mouseup',()=>keys[key]=false);
-document.getElementById(id).addEventListener('touchstart',()=>keys[key]=true);
-document.getElementById(id).addEventListener('touchend',()=>keys[key]=false);}
-bindBtn('left','a');bindBtn('right','d');bindBtn('jump','w');bindBtn('light','j');bindBtn('heavy','k');bindBtn('block','l');
-
-// Online setup (simplifié)
-async function setupOnline(){
-  const pc=new RTCPeerConnection(); dataChannel=pc.createDataChannel("game");
-  dataChannel.onmessage=e=>{let d=JSON.parse(e.data);p2.x=d.x;p2.y=d.y;p2.hp=d.hp;};
-  pc.onicecandidate=e=>{ if(e.candidate) sendSignal({candidate:e.candidate});};
-  // Placeholder signaling
-  document.getElementById('status').innerText="Connecté au signaling (placeholder)";
-  online=true;ai=false;
+/* ENVIRONMENTS (draw functions) */
+const envSelect = document.getElementById('env-select');
+function drawEnvironment(name){
+  // background shapes for atmosphere
+  if(name==='forest'){
+    // sky gradient already; draw trees silhouette
+    ctx.fillStyle = '#0a3d12';
+    for(let i=0;i<10;i++){
+      const tx = (i/10)*W + (i%2?30:-30);
+      ctx.beginPath(); ctx.moveTo(tx,H-120); ctx.lineTo(tx-40,H-40); ctx.lineTo(tx+40,H-40); ctx.closePath();
+      ctx.fill();
+    }
+    // ground
+    ctx.fillStyle='#16591b'; ctx.fillRect(0,H-40,W,40);
+  } else if(name==='city'){
+    // buildings
+    ctx.fillStyle='#222';
+    for(let i=0;i<12;i++){
+      const bw = 30 + Math.random()*80;
+      const bx = i*(W/12);
+      const bh = 80 + Math.random()*150;
+      ctx.fillRect(bx, H-40-bh, bw, bh);
+    }
+    ctx.fillStyle='#2b2b2b'; ctx.fillRect(0,H-40,W,40);
+  } else if(name==='jungle'){
+    ctx.fillStyle='#072'; ctx.fillRect(0,H-100,W,100);
+    for(let i=0;i<18;i++){
+      ctx.fillStyle = `rgba(12,55,18,${0.7 - Math.random()*0.3})`;
+      const tx = i*(W/18) + (Math.random()*40-20);
+      ctx.beginPath(); ctx.ellipse(tx,H-120,20,60,0,0,Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle='#184'; ctx.fillRect(0,H-40,W,40);
+  } else if(name==='desert'){
+    // dunes
+    ctx.fillStyle='#e7c78a';
+    for(let i=0;i<4;i++){
+      ctx.beginPath(); ctx.ellipse(W*i/4 + 50, H-60, 180, 60, 0, Math.PI, 2*Math.PI); ctx.fill();
+    }
+    ctx.fillStyle='#cfb97a'; ctx.fillRect(0,H-40,W,40);
+  }
 }
-function sendSignal(msg){/* TODO: WebSocket vers SIGNALING_SERVER_URL */}
-// Buttons
-document.getElementById('playAI').onclick=()=>{ai=true;online=false;};
-document.getElementById('playOnline').onclick=()=>{setupOnline();};
+
+/* DRAW STICK FIGURES with simple Martial moves animations */
+function drawStick(p){
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.strokeStyle = p.color; ctx.lineWidth = 6; ctx.lineCap='round';
+  // head
+  ctx.beginPath(); ctx.arc(0,-70,10,0,Math.PI*2); ctx.stroke();
+  // torso
+  ctx.beginPath(); ctx.moveTo(0,-60); ctx.lineTo(0,-20); ctx.stroke();
+  // arms
+  let armAngle = 0;
+  if(p.state==='punch') armAngle = -Math.PI/3 * p.facing;
+  if(p.state==='kick') armAngle = -Math.PI/6;
+  // left arm
+  ctx.beginPath();
+  ctx.moveTo(0,-50); ctx.lineTo(-18 * p.facing, -30 + (p.state==='crouch'?8:0)); ctx.stroke();
+  // right arm
+  ctx.beginPath();
+  ctx.moveTo(0,-50); ctx.lineTo(18 * p.facing + (p.state==='punch'?30*p.facing:0), -30 + (p.state==='punch'?-10:0)); ctx.stroke();
+  // legs
+  ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(-12, 20 + (p.state==='kick'?-6:0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-20); ctx.lineTo(12 + (p.state==='kick'?20*p.facing:0), 30 + (p.state==='kick'?-10:0)); ctx.stroke();
+  ctx.restore();
+}
+
+/* GAME LOGIC */
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function hitTest(attacker, defender, type){
+  // simple AABB on torso area with reach
+  const aBox = {x:attacker.x - 20, y:attacker.y - 80, w:40, h:80};
+  let reach = (type==='punch'?70:90);
+  // extend box in facing direction
+  if(attacker.facing>0) aBox.w += reach; else aBox.x -= reach;
+  const dBox = {x:defender.x - 16, y:defender.y - 80, w:32, h:80};
+  return !(aBox.x + aBox.w < dBox.x || aBox.x > dBox.x + dBox.w || aBox.y + aBox.h < dBox.y || aBox.y > dBox.y + dBox.h);
+}
+
+function applyKnockback(defender, attacker, strength){
+  defender.vx += 3 * strength * (attacker.facing);
+  defender.vy -= 4 * strength;
+}
+
+/* Input binding (keyboard + tactile) */
+const keys = {};
+window.addEventListener('keydown', e => {
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','a','d','w','j','k','l'].includes(e.key)) { e.preventDefault(); }
+  if(e.key==='a' || e.key==='ArrowLeft') keys.left=true;
+  if(e.key==='d' || e.key==='ArrowRight') keys.right=true;
+  if(e.key==='w' || e.key===' ' || e.key==='ArrowUp') keys.jump=true;
+  if(e.key==='j') keys.punch=true;
+  if(e.key==='k') keys.kick=true;
+  if(e.key==='l') keys.block=true;
+});
+window.addEventListener('keyup', e => {
+  if(e.key==='a' || e.key==='ArrowLeft') keys.left=false;
+  if(e.key==='d' || e.key==='ArrowRight') keys.right=false;
+  if(e.key==='w' || e.key===' ' || e.key==='ArrowUp') keys.jump=false;
+  if(e.key==='j') keys.punch=false;
+  if(e.key==='k') keys.kick=false;
+  if(e.key==='l') keys.block=false;
+});
+
+/* Tactile buttons */
+[['left-btn','left'],['right-btn','right'],['jump-btn','jump'],['punch-btn','punch'],['kick-btn','kick'],['block-btn','block']].forEach(([id,key])=>{
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', e=>{ e.preventDefault(); keys[key]=true; });
+  el.addEventListener('touchend', e=>{ e.preventDefault(); keys[key]=false; });
+  el.addEventListener('mousedown', e=>{ keys[key]=true; });
+  el.addEventListener('mouseup', e=>{ keys[key]=false; });
+});
+
+/* Combo detection: punch then kick within short window -> fatal */
+function registerCombo(p){
+  p.comboBuffer.push(Date.now());
+  // keep last two
+  if(p.comboBuffer.length>3) p.comboBuffer.shift();
+  // punch then kick within 800ms
+  if(p.comboBuffer.length>=2){
+    // assume punch then kick if keys pressed in order recorded by actions (we'll set comboTime when attacks happen)
+  }
+}
+
+/* Attack actions with cooldowns */
+function tryAttack(actor, type){
+  if(actor.cool>0) return false;
+  if(actor.block) return false;
+  actor.state = (type==='punch'?'punch':'kick'); actor.cool = type==='punch'?22:40;
+  // detect hit
+  if(hitTest(actor, (actor===me?them:me), type)){
+    const target = (actor===me?them:me);
+    // blocking reduces damage
+    if(target.block){
+      // small recoil
+      playHitSound(); spawnBlood(target.x, target.y-40, 4);
+      target.hp -= (type==='punch'?0.5:1);
+    } else {
+      const dmg = (type==='punch') ? (1 + Math.round(Math.random())) : (3 + Math.round(Math.random()));
+      target.hp -= dmg;
+      playHitSound(); spawnBlood(target.x, target.y-40, 12);
+      applyKnockback(target, actor, type==='punch'?0.6:1.2);
+      // voice: "ouille"
+      speak('ouille', {rate:1.1});
+    }
+    // clamp hp
+    target.hp = Math.max(0, target.hp);
+    // sync if online
+    if(dc && dc.readyState==='open') sendState();
+    // check death
+    checkEnd();
+  }
+  // combo buffer
+  actor.comboBuffer.push({type, t:Date.now()});
+  // check for fatal: sequence punch then kick within 1000ms
+  if(actor.comboBuffer.length>=2){
+    const a = actor.comboBuffer;
+    const last = a[a.length-1], prev = a[a.length-2];
+    if(prev.type==='punch' && last.type==='kick' && (last.t - prev.t) < 1000){
+      // fatal move
+      actor.state='fatal';
+      actor.cool = 160;
+      const target = (actor===me?them:me);
+      // if in range
+      if(Math.abs(actor.x - target.x) < 120){
+        target.hp = 0;
+        spawnBlood(target.x, target.y-40, 40);
+        playHitSound();
+        // speak fatal line
+        speak("reçois ta dose fripouilles tu l'as bien mérité", {rate:0.9});
+        checkEnd();
+      }
+      actor.comboBuffer = [];
+    }
+  }
+  return true;
+}
+
+/* Check end conditions */
+function checkEnd(){
+  if(me.hp <= 0 || them.hp <= 0){
+    if(me.hp <= 0){
+      speak("aaahhhh je peux pas finir ainsi", {rate:0.9});
+      // opponent victory laugh
+      setTimeout(()=>speak("hohooo hahaha", {rate:1.0}), 700);
+      msgEl.innerText = "Vous avez perdu !";
+    } else {
+      speak("hohooo hahaha", {rate:1.0});
+      setTimeout(()=>speak("aaahhhh je peux pas finir ainsi", {rate:0.9}), 300);
+      msgEl.innerText = "Vous avez gagné !";
+    }
+    // if online, notify opponent
+    if(dc && dc.readyState==='open') sendState(true);
+    // reset after a few seconds
+    setTimeout(()=>resetRound(), 4000);
+  }
+}
+
+/* Simple AI (fallback) */
+function aiStep(){
+  if(mode!=='ai') return;
+  // approach or retreat randomly
+  const dx = me.x - them.x;
+  if(Math.abs(dx) > 100){
+    them.vx = dx>0 ? 1.6 : -1.6;
+    if(Math.random() < 0.01) them.vy = -8;
+  } else {
+    them.vx = (Math.random()>0.6 ? 1.6 : -1.6);
+    // decide attack
+    if(Math.random() < 0.04) tryAttack(them, 'punch');
+    if(Math.random() < 0.02) tryAttack(them, 'kick');
+  }
+}
+
+/* Networking (WebRTC DataChannel minimal pairing + placeholder signaling) */
+function makeRoomId(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
+
+async function startOnlineAsHost(){
+  // create RTCPeerConnection and WebSocket signaling
+  localRole = 'host';
+  roomId = makeRoomId();
+  roomInfo.innerText = "Salle: " + roomId + " (partagez ce code)";
+  setupWebSocket();
+  pc = new RTCPeerConnection();
+  dc = pc.createDataChannel('game');
+  dc.onopen = ()=>{ netStatus.innerText = "DataChannel ouvert"; };
+  dc.onmessage = ev => { handleRemoteMessage(ev.data); };
+  pc.onicecandidate = ev => { if(ev.candidate) wsSend({type:'candidate', candidate:ev.candidate, room:roomId}); };
+  const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
+  wsSend({type:'offer', sdp:offer.sdp, room:roomId});
+}
+
+async function startOnlineAsGuest(givenRoom){
+  localRole = 'guest';
+  roomId = givenRoom;
+  roomInfo.innerText = "Salle: " + roomId + " (invité)";
+  setupWebSocket();
+  pc = new RTCPeerConnection();
+  pc.ondatachannel = e => { dc = e.channel; dc.onmessage = ev => handleRemoteMessage(ev.data); dc.onopen = ()=> netStatus.innerText="DataChannel ouvert"; };
+  pc.onicecandidate = ev => { if(ev.candidate) wsSend({type:'candidate', candidate:ev.candidate, room:roomId}); };
+  // wait for offer via signaling then create answer
+}
+
+/* Signaling via WebSocket (placeholder) */
+function setupWebSocket(){
+  if(!SIGNALING_SERVER_URL || SIGNALING_SERVER_URL.includes('EXEMPLE')){ netStatus.innerText = "Signaling non configuré (fallback IA possible)"; return; }
+  ws = new WebSocket(SIGNALING_SERVER_URL);
+  ws.onopen = ()=>{ netStatus.innerText="Signaling connecté"; };
+  ws.onmessage = async (ev)=>{
+    const msg = JSON.parse(ev.data);
+    if(msg.room !== roomId) return;
+    if(msg.type==='offer' && localRole==='guest'){
+      const desc = {type:'offer', sdp:msg.sdp};
+      await pc.setRemoteDescription(desc);
+      const answer = await pc.createAnswer(); await pc.setLocalDescription(answer);
+      wsSend({type:'answer', sdp:answer.sdp, room:roomId});
+    } else if(msg.type==='answer' && localRole==='host'){
+      const desc = {type:'answer', sdp:msg.sdp};
+      await pc.setRemoteDescription(desc);
+    } else if(msg.type==='candidate' && msg.candidate){
+      try{ await pc.addIceCandidate(msg.candidate); }catch(e){}
+    }
+  };
+}
+
+function wsSend(obj){
+  if(!ws || ws.readyState!==1) return;
+  ws.send(JSON.stringify(obj));
+}
+
+function handleRemoteMessage(data){
+  try{
+    const o = JSON.parse(data);
+    if(o.type==='state'){
+      // basic reconciliation: apply their position & hp to them (peer is opponent)
+      if(localRole==='host'){ // host maps remote to 'them'
+        them.x = o.x; them.y = o.y; them.hp = o.hp;
+      } else { // guest maps remote to 'me' ?? We'll treat consistently: remote always maps to 'them'
+        them.x = o.x; them.y = o.y; them.hp = o.hp;
+      }
+    } else if(o.type==='action' && o.action==='fatal'){
+      // remote performed fatal -> immediate death
+      if(o.target==='me'){ me.hp = 0; checkEnd(); }
+    }
+  }catch(e){}
+}
+
+function sendState(forceEnd=false){
+  if(!dc || dc.readyState!=='open') return;
+  const payload = {type:'state', x: me.x, y: me.y, hp: me.hp, t: Date.now(), round};
+  dc.send(JSON.stringify(payload));
+  if(forceEnd) dc.send(JSON.stringify({type:'action', action:'end', winner: me.name}));
+}
+
+/* Simple interpolation/prediction: we will smooth 'them' movement based on last known */
+let lastRemote = {x: them.x, t: Date.now()};
+function smoothRemote(){
+  // linear lerp towards lastRemote.x
+  them.x += (lastRemote.x - them.x) * 0.12;
+}
+
+/* Game update loop */
+function updatePhysics(p){
+  // apply velocities
+  p.x += p.vx;
+  p.y += p.vy;
+  // gravity
+  p.vy += 0.6;
+  if(p.y > H-40){
+    p.y = H-40; p.vy = 0; p.onGround = true;
+  } else p.onGround = false;
+  // friction
+  p.vx *= 0.85;
+  // boundaries
+  p.x = clamp(p.x, 40, W-40);
+  if(Math.abs(p.vx) > 0.1) p.facing = p.vx>0?1:-1;
+  if(p.cool>0) p.cool--;
+  if(p.block) p.block = false; // block resets each frame unless held
+}
+
+let lastTick = Date.now();
+function tick(){
+  const now = Date.now();
+  const dt = now - lastTick; lastTick = now;
+  // controls for 'me'
+  me.vx = 0;
+  if(keys.left) me.vx = -4;
+  if(keys.right) me.vx = 4;
+  if(keys.jump && me.onGround){ me.vy = -11; me.onGround=false; keys.jump=false; }
+  if(keys.block) me.block = true;
+  // attacks
+  if(keys.punch){ tryAttack(me, 'punch'); keys.punch=false; }
+  if(keys.kick){ tryAttack(me, 'kick'); keys.kick=false; }
+  // update AI or online
+  if(mode==='ai'){ aiStep(); }
+  // physics
+  updatePhysics(me); updatePhysics(them);
+  // smooth remote if online
+  if(mode==='online' && dc){
+    smoothRemote();
+  }
+  // particles
+  particles.forEach(p=>{ p.x += p.vx; p.y += p.vy; p.vy += 0.25; p.life--; });
+  particles = particles.filter(p=>p.life>0);
+  // UI update
+  document.getElementById('hp1').innerText = Math.round(me.hp);
+  document.getElementById('hp2').innerText = Math.round(them.hp);
+  document.getElementById('bar1').style.width = ((me.hp/INITIAL_HP)*100)+'%';
+  document.getElementById('bar2').style.width = ((them.hp/INITIAL_HP)*100)+'%';
+}
+
+/* DRAW loop */
+function render(){
+  // clear
+  ctx.clearRect(0,0,W,H);
+  // sky
+  ctx.fillStyle = '#87ceeb'; ctx.fillRect(0,0,W,H);
+  // environment
+  drawEnvironment(envSelect.value);
+  // ground line
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0,H-40); ctx.lineTo(W,H-40); ctx.stroke();
+  // draw players
+  drawStick(me);
+  drawStick(them);
+  // draw particles
+  ctx.fillStyle = 'rgba(200,20,20,0.95)';
+  particles.forEach(p=> ctx.fillRect(p.x, p.y, 3, 3));
+  requestAnimationFrame(render);
+}
+
+/* Helper drawStick using current state and small pose variations */
+function drawStick(p){
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.strokeStyle = p.color; ctx.lineWidth = 6; ctx.lineCap='round';
+  // head
+  ctx.beginPath(); ctx.arc(0,-64,10,0,Math.PI*2); ctx.stroke();
+  // body
+  ctx.beginPath(); ctx.moveTo(0,-54); ctx.lineTo(0,-18); ctx.stroke();
+  // arms: dynamic based on state
+  if(p.state==='punch'){ ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(30*p.facing,-38); ctx.stroke(); }
+  else if(p.state==='kick'){ ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(28*p.facing,8); ctx.stroke(); }
+  else if(p.state==='fatal'){ ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(40*p.facing,-8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(18,28); ctx.stroke(); }
+  else {
+    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(-18, -30); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-48); ctx.lineTo(18, -30); ctx.stroke();
+  }
+  // legs
+  ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(-12,36); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-18); ctx.lineTo(12,36); ctx.stroke();
+  ctx.restore();
+}
+
+/* Reset / start round */
+function resetRound(){
+  me = new Player(140,'#111','Me');
+  them = new Player(W-140,'#0033aa','Enemy');
+  round = 1;
+  msgEl.innerText = '';
+  if(mode==='ai') { mode='ai'; } else if(mode==='online') { mode='online'; }
+}
+
+/* Bind UI buttons */
+document.getElementById('btn-ai').addEventListener('click', ()=>{ mode='ai'; roomInfo.innerText='Mode IA'; msgEl.innerText='Joue contre l\'IA'; resetRound(); });
+document.getElementById('reset').addEventListener('click', ()=>{ resetRound(); });
+document.getElementById('btn-online').addEventListener('click', async ()=>{
+  // show prompt to host or join
+  const choice = confirm('Créer une salle ? OK = Créer, Annuler = Rejoindre');
+  if(choice){
+    // create host
+    mode='online';
+    await startOnlineAsHost();
+    msgEl.innerText = 'Salle créée — partagez le code affiché.';
+  } else {
+    const code = prompt('Entrez le code de la salle (6 chars):');
+    if(!code) return;
+    mode='online';
+    startOnlineAsGuest(code);
+    msgEl.innerText = 'Tentative de connexion…';
+  }
+});
+
+/* Simple send loop to stream local state if DataChannel open */
+setInterval(()=>{ if(dc && dc.readyState==='open'){ try{ dc.send(JSON.stringify({type:'state', x:me.x, y:me.y, hp:me.hp, t:Date.now()})); }catch(e){} } }, 80);
+
+/* Main game loops */
+(function mainLoop(){
+  tick();
+  requestAnimationFrame(mainLoop);
+})();
+render();
+
+/* Small usability: keep audio context resumed on first user interaction */
+document.addEventListener('pointerdown', ()=>{ if(audioCtx.state === 'suspended') audioCtx.resume(); });
+
+/* Graceful fallback: if signaling not configured, mode remains ai */
+if(!SIGNALING_SERVER_URL || SIGNALING_SERVER_URL.includes('EXEMPLE')){
+  netStatus.innerText = 'Signaling non configuré — mode en ligne désactivé. Utilisez IA.';
+}
+
+/* Accessibility: keyboard hints */
+msgEl.innerText = 'Contrôles: A/D (gauche/droite) - W/Space (saut) - J (poing) - K (pied) - L (bloc)';
 </script>
 </body>
 </html>
