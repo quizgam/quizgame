@@ -1,4 +1,3 @@
-```html
 <!doctype html>
 <html lang="fr">
 <head>
@@ -606,5 +605,5 @@
     setInterval(()=>{ timestamp.textContent = formatTime(); }, 60_000);
   </script>
 </body>
-</html># quizgame```
+</html># quizgame
 
