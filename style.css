@@ -1,0 +1,35 @@
+:root{
+  --bg:#f6fbff; --card:#ffffff; --muted:#6b7a8a; --accent:#4f9efc; --green:#34d399;
+  --glass: rgba(255,255,255,0.8);
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial;color:#0b2540;background:linear-gradient(180deg,#e6f2ff,#f6fbff);min-height:100vh}
+#app{display:flex;gap:18px;padding:20px;max-width:1200px;margin:0 auto}
+.sidebar{width:220px;background:var(--card);border-radius:14px;padding:18px;box-shadow:0 8px 30px rgba(10,20,40,0.06)}
+.brand{font-weight:800;font-size:20px;margin-bottom:12px}
+.sidebar nav{display:flex;flex-direction:column;gap:8px}
+.nav-btn{background:transparent;border:0;padding:10px;border-radius:8px;text-align:left;cursor:pointer;color:#0b2540}
+.nav-btn.active{background:linear-gradient(90deg,var(--accent),#79b7ff33);color:#032a5b}
+.progress{margin-top:18px}
+.p-bar{background:#e6eef9;border-radius:10px;height:10px;overflow:hidden}
+#xpBar{height:100%;width:0;background:linear-gradient(90deg,var(--green),#34d399)}
+.muted{color:var(--muted);font-size:13px}
+.main{flex:1;display:flex;flex-direction:column;gap:12px}
+.main-header{display:flex;justify-content:space-between;align-items:center}
+.card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 12px 40px rgba(10,20,40,0.06)}
+.small{padding:12px}
+.hidden{display:none}
+.cards{display:flex;gap:12px;margin-top:14px}
+.card.small{flex:1;cursor:pointer;border:1px dashed #e6f2ff}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.exercise{margin-top:12px}
+.controls{display:flex;gap:8px;margin-top:10px}
+textarea,input{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef9}
+button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer}
+.ai-box{margin-top:12px;padding:12px;background:#f1f9ff;border-radius:8px;border:1px solid #e6f3ff}
+.main-footer{text-align:center;padding:8px;color:var(--muted)}
+@media (max-width:900px){
+  #app{flex-direction:column;padding:12px}
+  .sidebar{width:100%;display:flex;flex-direction:row;justify-content:space-between;align-items:center}
+  .sidebar nav{flex-direction:row;gap:6px}
+}
