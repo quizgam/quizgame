@@ -1,117 +1,49 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>LinguaSprint — Démo</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Lingua Accelerator</title>
+  <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
-  <div id="app">
-    <aside class="sidebar">
-      <div class="brand">Lingua<span>🏆</span></div>
-      <nav>
-        <button class="nav-btn active" data-section="home">Home</button>
-        <button class="nav-btn" data-section="lessons">Lessons</button>
-        <button class="nav-btn" data-section="speaking">Speaking</button>
-        <button class="nav-btn" data-section="writing">Writing</button>
-        <button class="nav-btn" data-section="listening">Listening</button>
-        <button class="nav-btn" data-section="profile">Profile</button>
-      </nav>
-      <div class="progress">
-        <div class="p-title">Progress</div>
-        <div class="p-bar"><div id="xpBar"></div></div>
-        <div id="xpText">0 XP</div>
-      </div>
-    </aside>
+  <header>
+    <h1>Lingua Accelerator</h1>
+    <select id="langSelect">
+      <option value="en">English 🇬🇧</option>
+      <option value="fr">Français 🇫🇷</option>
+      <option value="de">Deutsch 🇩🇪</option>
+    </select>
+  </header>
 
-    <main class="main">
-      <header class="main-header">
-        <div id="breadcrumb">Home</div>
-        <div class="header-actions">
-          <button id="hintBtn">Hint</button>
-          <button id="resetBtn">Reset</button>
-        </div>
-      </header>
+  <div class="container">
+    <div class="card">
+      <h2>Speaking Practice 🎤</h2>
+      <p id="sPrompt">Say: "I am learning languages quickly."</p>
+      <button id="startRec">Start Recording</button>
+      <button id="stopRec" disabled>Stop</button>
+      <div id="recResult" class="ai-box"></div>
+      <button id="sendAI" disabled>Get AI Feedback</button>
+      <div id="aiSpeakingFeedback" class="ai-box"></div>
+    </div>
 
-      <section id="content">
-        <!-- Home -->
-        <div class="page" id="home">
-          <h2>Welcome — Rapid English Booster</h2>
-          <p class="muted">Practice daily: listening, speaking, writing. Use the AI coach for feedback.</p>
-          <div class="cards">
-            <div class="card small" data-action="start-lesson">Start Lesson</div>
-            <div class="card small" data-action="speaking">Practice Speaking</div>
-            <div class="card small" data-action="writing">Improve Writing</div>
-          </div>
-        </div>
+    <div class="card">
+      <h2>Writing Practice ✍️</h2>
+      <textarea id="writeInput" rows="5" placeholder="Write something..."></textarea>
+      <button id="sendWriting">Check Writing</button>
+      <div id="aiWritingFeedback" class="ai-box"></div>
+    </div>
 
-        <!-- Lessons -->
-        <div class="page hidden" id="lessons">
-          <h2>Lessons</h2>
-          <div id="lessonList" class="tiles"></div>
-        </div>
-
-        <!-- Speaking -->
-        <div class="page hidden" id="speaking">
-          <h2>Speaking Practice</h2>
-          <div class="exercise card">
-            <div class="prompt" id="sPrompt">Repeat: "I have been studying English for two years."</div>
-            <div class="controls">
-              <button id="startRec">🎤 Start Recording</button>
-              <button id="stopRec" disabled>⏹ Stop</button>
-              <button id="sendAI" disabled>Send to AI for feedback</button>
-            </div>
-            <div id="recResult" class="muted"></div>
-            <div id="aiSpeakingFeedback" class="ai-box"></div>
-          </div>
-        </div>
-
-        <!-- Writing -->
-        <div class="page hidden" id="writing">
-          <h2>Writing Practice</h2>
-          <div class="exercise card">
-            <div class="prompt">Write a short paragraph (60-100 words) about your last holiday.</div>
-            <textarea id="writeInput" rows="6" placeholder="Write here..."></textarea>
-            <div class="controls">
-              <button id="sendWriting">Check with AI</button>
-              <button id="autoSuggest">Auto-suggest</button>
-            </div>
-            <div id="aiWritingFeedback" class="ai-box"></div>
-          </div>
-        </div>
-
-        <!-- Listening -->
-        <div class="page hidden" id="listening">
-          <h2>Listening Practice</h2>
-          <div class="exercise card">
-            <div class="prompt">Listen and type what you hear.</div>
-            <audio id="listenAudio" controls></audio>
-            <input id="listenAnswer" placeholder="Type what you hear..."/>
-            <div class="controls">
-              <button id="checkListen">Check</button>
-            </div>
-            <div id="listenFeedback" class="ai-box"></div>
-          </div>
-        </div>
-
-        <!-- Profile -->
-        <div class="page hidden" id="profile">
-          <h2>Your Profile</h2>
-          <div class="card small">
-            <div>Level: <span id="level">A2</span></div>
-            <div>XP: <span id="xp">0</span></div>
-            <div>Goal: C1 in 3 weeks? <small class="muted">intense plan recommended</small></div>
-          </div>
-        </div>
-      </section>
-
-      <footer class="main-footer">
-        <div class="muted">Demo • No real payments • Use with AI backend for feedback</div>
-      </footer>
-    </main>
+    <div class="card">
+      <h2>Listening Practice 🎧</h2>
+      <button id="playAI">🔊 Play AI Audio</button>
+      <input id="listenAnswer" placeholder="Type what you hear..."/>
+      <button id="checkListen">Check</button>
+      <div id="listenFeedback" class="ai-box"></div>
+    </div>
   </div>
 
+  <footer>© 2025 Lingua Accelerator — AI-powered learning</footer>
   <script src="app.js"></script>
 </body>
 </html>

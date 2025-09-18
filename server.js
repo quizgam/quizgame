@@ -1,56 +1,91 @@
-// server.js — AI proxy example (Node/Express)
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const fetch = require('node-fetch');
+require("dotenv").config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+const fetch = require("node-fetch");
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// simple endpoint for AI feedback
-app.post('/api/ai/feedback', async (req, res) => {
-  const { mode, userText, prompt } = req.body;
-  // validate
-  if(!userText) return res.status(400).json({ error: 'Missing userText' });
+/* --- Feedback IA (GPT-5 ou GPT-4o-mini si dispo) --- */
+app.post("/api/ai/feedback", async (req, res) => {
+  const { mode, userText, targetLang } = req.body;
+  if (!userText) return res.status(400).json({ error: "Missing userText" });
 
-  // Build a prompt for the LLM
-  const rolePrompt = (mode === 'speaking')
-    ? `You are an expert English tutor. Evaluate the user's spoken sentence for pronunciation hints, grammar corrections and a short suggested improved phrasing.`
-    : `You are an expert English tutor. Provide grammar corrections, idiomatic improvements, and suggestions to improve clarity.`;
+  const langName =
+    targetLang === "fr" ? "French" : targetLang === "de" ? "German" : "English";
 
-  const system = rolePrompt;
-  const user = `User text: "${userText}". Context prompt: "${prompt||''}". Provide concise feedback (2-4 bullet points) and a corrected version.`;
+  const systemPrompt = `You are an expert ${langName} tutor. 
+Correct mistakes, suggest improvements, and provide clear explanations for ${mode} exercises.`;
 
-  try{
-    // Example calling OpenAI-compatible API (replace with your provider)
-    const OPENAI_KEY = process.env.OPENAI_API_KEY;
-    if(!OPENAI_KEY) return res.status(500).json({ error: 'AI key not configured on server.' });
+  const userPrompt = `Mode: ${mode}\nLanguage: ${langName}\nStudent text: "${userText}"\nPlease:
+1. Give a corrected version
+2. List 2-3 improvement tips
+3. Propose one short follow-up exercise.`;
 
-    const payload = {
-      model: "gpt-4o-mini", // change depending on provider / plan
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      max_tokens: 400,
-      temperature: 0.2
-    };
-
-    const r = await fetch('https://api.openai.com/v1/chat/completions', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer '+OPENAI_KEY },
-      body: JSON.stringify(payload)
+  try {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // GPT-5 si disponible
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 500,
+        temperature: 0.3
+      })
     });
+
     const data = await r.json();
-    const answer = (data.choices && data.choices[0] && data.choices[0].message) ? data.choices[0].message.content : JSON.stringify(data);
+    if (data.error) throw new Error(data.error.message);
+
+    const answer = data.choices?.[0]?.message?.content || "No response.";
     res.json({ feedback: answer });
-  }catch(err){
-    console.error(err);
-    res.status(500).json({ error: 'AI error', details: err.message });
+  } catch (err) {
+    console.error("AI error:", err.message);
+    res.status(500).json({ error: "AI request failed", details: err.message });
+  }
+});
+
+/* --- Text-to-Speech (TTS) avec OpenAI --- */
+app.post("/api/ai/tts", async (req, res) => {
+  const { text, lang } = req.body;
+  if (!text) return res.status(400).json({ error: "Missing text" });
+
+  try {
+    const r = await fetch("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini-tts",
+        voice: lang === "fr" ? "alloy" : lang === "de" ? "verse" : "aria",
+        input: text
+      })
+    });
+
+    if (!r.ok) {
+      const err = await r.text();
+      throw new Error(err);
+    }
+
+    res.setHeader("Content-Type", "audio/mpeg");
+    r.body.pipe(res);
+  } catch (err) {
+    console.error("TTS error:", err.message);
+    res.status(500).json({ error: "TTS failed", details: err.message });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, ()=> console.log('AI proxy running on', PORT));
+app.listen(PORT, () =>
+  console.log(`✅ AI backend running on http://localhost:${PORT}`)
+);
