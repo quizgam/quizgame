@@ -4,7 +4,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Lingua Accelerator</title>
-  <link rel="stylesheet" href="styles.css"/>
+  <!-- ✅ corriger ici : style.css -->
+  <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
   <header>
@@ -21,7 +22,8 @@
       <h2>Speaking Practice 🎤</h2>
       <p id="sPrompt">Say: "I am learning languages quickly."</p>
       <button id="startRec">Start Recording</button>
-      <button id="stopRec" disabled>Stop</button>
+      <!-- ✅ enlever disabled par défaut -->
+      <button id="stopRec">Stop</button>
       <div id="recResult" class="ai-box"></div>
       <button id="sendAI" disabled>Get AI Feedback</button>
       <div id="aiSpeakingFeedback" class="ai-box"></div>

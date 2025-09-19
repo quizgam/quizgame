@@ -1,7 +1,7 @@
 {
   "name": "lingua-accelerator",
   "version": "1.1.0",
-  "description": "Accelerated language learning app (FR, DE, EN) with GPT-5 feedback and TTS audio",
+  "description": "Accelerated language learning app (FR, DE, EN) with GPT feedback and TTS audio",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -18,7 +18,6 @@
     "nodemon": "^3.0.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18.x"
   }
 }
-

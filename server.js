@@ -8,7 +8,12 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-/* --- Feedback IA (GPT-5 ou GPT-4o-mini si dispo) --- */
+/* --- Route de test (page d'accueil) --- */
+app.get("/", (req, res) => {
+  res.send("✅ Backend is running!");
+});
+
+/* --- Feedback IA (GPT) --- */
 app.post("/api/ai/feedback", async (req, res) => {
   const { mode, userText, targetLang } = req.body;
   if (!userText) return res.status(400).json({ error: "Missing userText" });
@@ -32,7 +37,7 @@ Correct mistakes, suggest improvements, and provide clear explanations for ${mod
         Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // GPT-5 si disponible
+        model: "gpt-4o-mini", // GPT-5 si dispo
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -53,7 +58,7 @@ Correct mistakes, suggest improvements, and provide clear explanations for ${mod
   }
 });
 
-/* --- Text-to-Speech (TTS) avec OpenAI --- */
+/* --- Text-to-Speech (TTS) --- */
 app.post("/api/ai/tts", async (req, res) => {
   const { text, lang } = req.body;
   if (!text) return res.status(400).json({ error: "Missing text" });
@@ -62,7 +67,7 @@ app.post("/api/ai/tts", async (req, res) => {
     const r = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -87,5 +92,5 @@ app.post("/api/ai/tts", async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () =>
-  console.log(`✅ AI backend running on http://localhost:${PORT}`)
+  console.log(`🚀 Backend running on http://localhost:${PORT}`)
 );

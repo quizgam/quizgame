@@ -1,3 +1,6 @@
+/* Import police Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+
 :root {
   --bg: #f7faff;
   --card: #ffffff;
@@ -17,6 +20,7 @@ body {
   font-family: "Inter", system-ui, sans-serif;
   background: linear-gradient(180deg, #e6f2ff, var(--bg));
   color: var(--text);
+  line-height: 1.6;
 }
 
 header {
@@ -26,10 +30,13 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .container {
-  max-width: 1000px;
+  max-width: 900px;
   margin: auto;
   padding: 20px;
 }
@@ -37,18 +44,30 @@ header {
 .card {
   background: var(--card);
   border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
 }
 
 button {
   background: var(--accent);
   border: none;
   color: white;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+button:hover:not(:disabled) {
+  background: #3c8be5;
+  transform: scale(1.03);
 }
 
 button:disabled {
@@ -63,6 +82,7 @@ input {
   border: 1px solid #e6eef9;
   border-radius: 8px;
   margin-top: 10px;
+  font-family: inherit;
 }
 
 .ai-box {
@@ -75,7 +95,10 @@ input {
 
 footer {
   text-align: center;
-  padding: 10px;
+  padding: 14px;
   font-size: 13px;
   color: var(--muted);
+  background: var(--card);
+  margin-top: 20px;
+  border-top: 1px solid #e6eef9;
 }
